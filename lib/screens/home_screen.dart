@@ -5,6 +5,8 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/widgets/jubilo_widgets.dart';
 import 'settings_screen.dart';
+import 'aprender/cuentanos_sobre_ti_screen.dart';
+import 'simulador/simulador_intro_screen.dart';
 
 /// 5️⃣ Inicio (home). Los dos flujos (Aprender / Simular) todavía son
 /// solo un aviso "Próximamente" — se conectan de verdad a partir de la
@@ -65,12 +67,22 @@ class HomeScreen extends StatelessWidget {
               const SizedBox(height: 32),
               PrimaryButton(
                 label: 'Aprender sobre mi pensión',
-                onPressed: () => _comingSoon(context, 'Aprender'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const CuentanosSobreTiScreen()),
+                  );
+                },
               ),
               const SizedBox(height: 14),
               SecondaryButton(
                 label: 'Simular mi pensión',
-                onPressed: () => _comingSoon(context, 'Simulador'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const SimuladorIntroScreen()),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               Center(

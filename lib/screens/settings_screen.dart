@@ -4,7 +4,7 @@ import '../core/providers/settings_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 
-/// 1️⃣8️⃣ Configuración: tamaño de letra, alto contraste, lectura en voz
+/// Configuración: tamaño de letra, alto contraste, lectura en voz
 /// alta. Es la misma lógica que se usó en el Ajuste inicial de texto del
 /// onboarding, pero accesible en cualquier momento.
 class SettingsScreen extends StatelessWidget {

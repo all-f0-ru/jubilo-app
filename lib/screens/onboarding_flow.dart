@@ -6,7 +6,7 @@ import '../core/theme/app_text_styles.dart';
 import '../core/widgets/jubilo_widgets.dart';
 import 'home_screen.dart';
 
-/// 1️⃣ Splash: logo + tagline, pasa sola a Bienvenida después de un
+/// Splash: logo + tagline, pasa sola a Bienvenida después de un
 /// momento breve.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
