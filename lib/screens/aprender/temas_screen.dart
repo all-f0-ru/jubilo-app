@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/widgets/jubilo_motion.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/user_segment.dart';
 import '../../core/models/topic.dart';
@@ -49,7 +50,7 @@ class TemasScreen extends StatelessWidget {
               highContrast: hc,
               onTap: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
+                  JubiloPageRoute(
                     builder: (_) =>
                         ComoEmpezarScreen(segmentInfo: segmentInfo),
                   ),
@@ -61,7 +62,9 @@ class TemasScreen extends StatelessWidget {
             ...temas.map((tema) {
               final esRelevante =
                   tema.segmentosRelevantes.contains(segmentInfo.segmento);
-              return Padding(
+              return FadeSlideIn(
+                index: temas.indexOf(tema) + 1,
+                child: Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: _TopicCard(
                   tema: tema,
@@ -70,7 +73,7 @@ class TemasScreen extends StatelessWidget {
                   highContrast: hc,
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
+                      JubiloPageRoute(
                         builder: (_) => ContenidoTemaScreen(
                           tema: tema,
                           segmentInfo: segmentInfo,
@@ -79,7 +82,7 @@ class TemasScreen extends StatelessWidget {
                     );
                   },
                 ),
-              );
+              ));
             }),
           ],
         ),
@@ -101,20 +104,44 @@ class _RouteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = highContrast ? Colors.black : AppColors.teal;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(16),
+          gradient: highContrast
+              ? null
+              : const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.teal, AppColors.tealDeep],
+                ),
+          color: highContrast ? Colors.black : null,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: (highContrast ? Colors.black : AppColors.teal)
+                  .withValues(alpha: 0.28),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.route_outlined, color: Colors.white, size: 28),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.route_outlined,
+                  color: Colors.white, size: 26),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -159,51 +186,40 @@ class _TopicCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = highContrast ? Colors.black : AppColors.teal;
-    return InkWell(
+    return JubiloCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: destacado ? accent : AppColors.creamDeep,
-            width: destacado ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(tema.icono, color: accent, size: 28),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (destacado) ...[
-                    AppChip(label: 'Relevante para tu etapa', color: accent),
-                    const SizedBox(height: 8),
-                  ],
-                  Text(
-                    tema.titulo,
-                    style: AppTextStyles.heading(scale * 0.78,
-                        color: highContrast ? Colors.black : null),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    tema.resumen,
-                    style: AppTextStyles.small(scale,
-                        color: highContrast ? Colors.black54 : null),
-                  ),
+      borderColor: destacado ? accent : AppColors.creamDeep,
+      borderWidth: destacado ? 2 : 1,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(icon: tema.icono, color: accent),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (destacado) ...[
+                  AppChip(label: 'Relevante para tu etapa', color: accent),
+                  const SizedBox(height: 8),
                 ],
-              ),
+                Text(
+                  tema.titulo,
+                  style: AppTextStyles.heading(scale * 0.78,
+                      color: highContrast ? Colors.black : null),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tema.resumen,
+                  style: AppTextStyles.small(scale,
+                      color: highContrast ? Colors.black54 : null),
+                ),
+              ],
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: highContrast ? Colors.black : AppColors.inkSoft),
-          ],
-        ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: highContrast ? Colors.black : AppColors.inkSoft),
+        ],
       ),
     );
   }

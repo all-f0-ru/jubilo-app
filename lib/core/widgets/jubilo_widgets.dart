@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'jubilo_motion.dart';
+
+/// Envuelve un callback para que además dispare una vibración suave.
+/// Devuelve null si [callback] es null (el botón queda deshabilitado).
+VoidCallback? _conVibracion(VoidCallback? callback) {
+  if (callback == null) return null;
+  return () {
+    HapticFeedback.selectionClick();
+    callback();
+  };
+}
 
 /// Librería de componentes reutilizables de Jubilo. Todos respetan el
 /// tamaño mínimo de toque (48px de alto) y usan los estilos del sistema
@@ -14,23 +26,44 @@ class PrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final IconData? icon;
 
+  /// Si es true, [icon] se dibuja después del texto (ej. "Siguiente →")
+  /// en vez de antes. Coincide con el patrón usado en varios botones del
+  /// diseño de referencia.
+  final bool trailingIcon;
+
   const PrimaryButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.icon,
+    this.trailingIcon = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final onTap = _conVibracion(onPressed);
+    if (icon != null && trailingIcon) {
+      return ElevatedButton(
+        onPressed: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(label),
+            const SizedBox(width: 8),
+            Icon(icon, size: 20),
+          ],
+        ),
+      );
+    }
     if (icon != null) {
       return ElevatedButton.icon(
-        onPressed: onPressed,
+        onPressed: onTap,
         icon: Icon(icon),
         label: Text(label),
       );
     }
-    return ElevatedButton(onPressed: onPressed, child: Text(label));
+    return ElevatedButton(onPressed: onTap, child: Text(label));
   }
 }
 
@@ -47,7 +80,8 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(onPressed: onPressed, child: Text(label));
+    return OutlinedButton(
+        onPressed: _conVibracion(onPressed), child: Text(label));
   }
 }
 
@@ -70,26 +104,53 @@ class OptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = highContrast ? Colors.black : AppColors.teal;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 56),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          color: selected ? accent : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accent, width: selected ? 0 : 2),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? Colors.white : accent,
-            fontWeight: FontWeight.w700,
-            fontSize: 17,
+    return PressableScale(
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? accent : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: accent, width: selected ? 0 : 2),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // El check aparece al seleccionar: así la selección no
+              // depende solo del color.
+              AnimatedSize(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                child: selected
+                    ? const Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: Icon(Icons.check_rounded,
+                            color: Colors.white, size: 20),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: selected ? Colors.white : accent,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -171,6 +232,91 @@ class InfoBanner extends StatelessWidget {
             child: Text(text, style: AppTextStyles.small(fontScale, color: fg)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Insignia circular de ícono con fondo de color suave. Da más calidez
+/// visual que un ícono solo, y se usa en tarjetas de tema, pasos y
+/// modalidades de pensión.
+class IconBadge extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final double size;
+
+  const IconBadge({
+    super.key,
+    required this.icon,
+    required this.color,
+    this.size = 44,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: color, size: size * 0.52),
+    );
+  }
+}
+
+/// Tarjeta estándar (fondo blanco, esquinas redondeadas, sombra suave)
+/// usada en listas de temas, modalidades y resultados. Reemplaza los
+/// `Container` con solo borde por una versión con más profundidad.
+class JubiloCard extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final Color? borderColor;
+  final double borderWidth;
+  final EdgeInsetsGeometry padding;
+
+  const JubiloCard({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.borderColor,
+    this.borderWidth = 1,
+    this.padding = const EdgeInsets.all(18),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: borderColor ?? AppColors.creamDeep,
+          width: borderWidth,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+    if (onTap == null) return card;
+    return PressableScale(
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap!();
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: card,
       ),
     );
   }

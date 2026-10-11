@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/providers/settings_provider.dart';
+import 'core/providers/main_tab_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/onboarding_flow.dart';
 import 'core/theme/app_text_styles.dart';
 
+
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => SettingsProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => MainTabProvider()),
+      ],
       child: const JubiloApp(),
     ),
   );

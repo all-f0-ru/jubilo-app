@@ -99,3 +99,30 @@ UserSegmentInfo computeSegment({required String sexo, required int edad}) {
     }
   }
 }
+
+/// 3 recomendaciones orientativas según el segmento, mostradas en "Tu
+/// situación" dentro de la pestaña Aprender.
+List<String> recomendacionesPara(Segmento segmento) {
+  switch (segmento) {
+    case Segmento.mujerPreparacion:
+    case Segmento.hombrePreparacion:
+      return [
+        'Revisa tu saldo y número de cotizaciones en la AFP.',
+        'Aprovecha de informarte con calma, sin apuro.',
+        'Conoce las 4 modalidades de pensión.',
+      ];
+    case Segmento.mujerEvaluacion:
+    case Segmento.hombreEvaluacion:
+      return [
+        'Revisa tu saldo y número de cotizaciones en la AFP.',
+        'Pide tu Certificado de Saldo.',
+        'Conoce las 4 modalidades de pensión.',
+      ];
+    case Segmento.mujerRevision:
+      return [
+        'Pide ofertas de pensión en distintas modalidades para comparar.',
+        'Pregunta por el Bono por Hijo y la PGU.',
+        'Solicita tu Certificado de Saldo si todavía no lo tienes.',
+      ];
+  }
+}

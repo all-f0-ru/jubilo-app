@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/widgets/jubilo_motion.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_widgets.dart';
-import 'simulador_detalle_screen.dart';
+import '../modalidades/modalidad_detail_screen.dart';
 
-/// 1️⃣3️⃣ Resultados del simulador: muestra las 4 modalidades como
-/// tarjetas explicativas (no hay montos, porque esto es educativo, no
-/// un cálculo real todavía) y permite entrar al detalle de cada una.
+/// Resultados del simulador: las 4 modalidades ordenadas según una
+/// sugerencia orientativa calculada a partir de las respuestas (no es
+/// un cálculo real de montos — eso requiere el motor actuarial, todavía
+/// en desarrollo).
 class SimuladorResultadosScreen extends StatelessWidget {
   final SimuladorRespuestas respuestas;
 
@@ -20,54 +22,76 @@ class SimuladorResultadosScreen extends StatelessWidget {
     final settings = context.watch<SettingsProvider>();
     final scale = settings.fontScale.multiplier;
     final hc = settings.highContrast;
+    final ordenadas = ordenarModalidadesPara(respuestas);
 
     return Scaffold(
       backgroundColor: hc ? Colors.white : AppColors.cream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Tus modalidades',
-            style: AppTextStyles.heading(1.0, color: hc ? Colors.black : null)),
+        title: Text('Resultados',
+            style: AppTextStyles.heading(0.85, color: hc ? Colors.black : null)),
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
-            Text(
-              'Según tus respuestas (${respuestas.edad} años, '
-              '${respuestas.sexo.toLowerCase()}, '
-              '${respuestas.estadoCivil.toLowerCase()}'
-              '${respuestas.tieneHijos ? ", con hijos/as" : ""}), estas '
-              'son las 4 modalidades que existen en Chile.',
-              style: AppTextStyles.body(scale, color: hc ? Colors.black87 : null),
+            InfoBanner(
+              variant: BannerVariant.warning,
+              fontScale: scale,
+              text: 'Simulación educativa, no un cálculo real. Estos '
+                  'resultados son orientativos según tus respuestas.',
             ),
             const SizedBox(height: 16),
-            InfoBanner(
-              variant: BannerVariant.info,
-              fontScale: scale,
-              text: 'Esto es una simulación orientativa y educativa. No '
-                  'reemplaza el cálculo oficial de tu AFP ni una '
-                  'compañía de seguros.',
+
+            JubiloCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('TU PERFIL',
+                      style: TextStyle(
+                        color: hc ? Colors.black54 : AppColors.inkSoft,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                      )),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${respuestas.rangoEdad} · ${respuestas.sexo} · '
+                    '${respuestas.estadoCivil} · '
+                    '${respuestas.tieneHijos ? "Con hijos/as" : "Sin hijos/as"}',
+                    style: AppTextStyles.body(scale, color: hc ? Colors.black87 : null),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
-            ...modalidadesPension.map((m) {
-              return Padding(
+
+            Text('Tus modalidades orientativas',
+                style: AppTextStyles.heading(scale * 0.85,
+                    color: hc ? Colors.black : null)),
+            const SizedBox(height: 12),
+
+            for (int i = 0; i < ordenadas.length; i++)
+              FadeSlideIn(
+                index: i,
+                child: Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: _ModalidadCard(
-                  modalidad: m,
+                child: _ModalidadRankCard(
+                  rank: i + 1,
+                  modalidad: ordenadas[i],
                   scale: scale,
                   hc: hc,
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
+                      JubiloPageRoute(
                         builder: (_) =>
-                            SimuladorDetalleScreen(modalidad: m),
+                            ModalidadDetailScreen(modalidad: ordenadas[i]),
                       ),
                     );
                   },
                 ),
-              );
-            }),
+              )),
           ],
         ),
       ),
@@ -75,13 +99,15 @@ class SimuladorResultadosScreen extends StatelessWidget {
   }
 }
 
-class _ModalidadCard extends StatelessWidget {
+class _ModalidadRankCard extends StatelessWidget {
+  final int rank;
   final ModalidadInfo modalidad;
   final double scale;
   final bool hc;
   final VoidCallback onTap;
 
-  const _ModalidadCard({
+  const _ModalidadRankCard({
+    required this.rank,
     required this.modalidad,
     required this.scale,
     required this.hc,
@@ -90,45 +116,47 @@ class _ModalidadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = hc ? Colors.black : AppColors.teal;
-    return InkWell(
+    final color = hc ? Colors.black : modalidad.color;
+    return JubiloCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.creamDeep),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.account_balance_outlined, color: accent, size: 26),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    modalidad.nombre,
-                    style: AppTextStyles.heading(scale * 0.78,
-                        color: hc ? Colors.black : null),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    modalidad.resumen,
-                    style: AppTextStyles.small(scale,
-                        color: hc ? Colors.black54 : null),
-                  ),
-                ],
-              ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: hc ? Colors.black : AppColors.inkSoft),
-          ],
-        ),
+            alignment: Alignment.center,
+            child: Text('$rank',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                )),
+          ),
+          const SizedBox(width: 10),
+          IconBadge(icon: modalidad.icono, color: color, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(modalidad.nombre,
+                    style: AppTextStyles.heading(scale * 0.74,
+                        color: hc ? Colors.black : null)),
+                const SizedBox(height: 4),
+                Text(modalidad.idealPara,
+                    style: AppTextStyles.small(scale,
+                        color: hc ? Colors.black54 : null)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: hc ? Colors.black : AppColors.inkSoft),
+        ],
       ),
     );
   }

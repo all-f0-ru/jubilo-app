@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/widgets/jubilo_motion.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -7,9 +8,8 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_widgets.dart';
 import 'simulador_resultados_screen.dart';
 
-/// 1️⃣2️⃣ Las 4 preguntas del simulador (edad, sexo, estado civil, hijos),
-/// en una sola pantalla con pasos internos — igual que el patrón de
-/// "Cuéntanos sobre ti", pero con ProgressDots para mostrar avance.
+/// Las 4 preguntas del simulador (edad, sexo, estado civil, hijos), con
+/// una barra de progreso "Pregunta X de 4" y botones Atrás/Siguiente.
 class SimuladorPreguntasScreen extends StatefulWidget {
   const SimuladorPreguntasScreen({super.key});
 
@@ -21,7 +21,7 @@ class SimuladorPreguntasScreen extends StatefulWidget {
 class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
   int _paso = 0; // 0: edad, 1: sexo, 2: estado civil, 3: hijos
 
-  final TextEditingController _edadController = TextEditingController();
+  String? _rangoEdad;
   String? _sexo;
   String? _estadoCivil;
   bool? _tieneHijos;
@@ -33,17 +33,24 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
     'Divorciado/a',
   ];
 
-  @override
-  void dispose() {
-    _edadController.dispose();
-    super.dispose();
-  }
+  static const List<String> _preguntas = [
+    '¿Qué edad tienes?',
+    '¿Cuál es tu sexo?',
+    '¿Cuál es tu estado civil?',
+    '¿Tienes hijos/as?',
+  ];
+
+  static const List<String> _ayudas = [
+    'Esto nos ayuda a ubicarte en tu etapa.',
+    '',
+    '',
+    '',
+  ];
 
   bool get _puedeAvanzar {
     switch (_paso) {
       case 0:
-        final edad = int.tryParse(_edadController.text);
-        return edad != null && edad > 0 && edad < 120;
+        return _rangoEdad != null;
       case 1:
         return _sexo != null;
       case 2:
@@ -61,13 +68,13 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
       return;
     }
     final respuestas = SimuladorRespuestas(
-      edad: int.parse(_edadController.text),
+      rangoEdad: _rangoEdad!,
       sexo: _sexo!,
       estadoCivil: _estadoCivil!,
       tieneHijos: _tieneHijos!,
     );
     Navigator.of(context).push(
-      MaterialPageRoute(
+      JubiloPageRoute(
         builder: (_) => SimuladorResultadosScreen(respuestas: respuestas),
       ),
     );
@@ -86,16 +93,16 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
     final settings = context.watch<SettingsProvider>();
     final scale = settings.fontScale.multiplier;
     final hc = settings.highContrast;
+    final accent = hc ? Colors.black : AppColors.teal;
+    final progreso = (_paso + 1) / 4;
 
     return Scaffold(
       backgroundColor: hc ? Colors.white : AppColors.cream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _anterior,
-        ),
+        title: Text('Simular',
+            style: AppTextStyles.heading(0.85, color: hc ? Colors.black : null)),
       ),
       body: SafeArea(
         child: Padding(
@@ -103,13 +110,74 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ProgressDots(total: 4, activeIndex: _paso, highContrast: hc),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Pregunta ${_paso + 1} de 4',
+                      style: AppTextStyles.small(scale,
+                          color: hc ? Colors.black87 : AppColors.inkSoft)),
+                  Text('${(progreso * 100).round()}%',
+                      style: AppTextStyles.small(scale,
+                          color: hc ? Colors.black87 : AppColors.inkSoft)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0, end: progreso),
+                  duration: reduceMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 350),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, valor, _) => LinearProgressIndicator(
+                    value: valor,
+                    minHeight: 8,
+                    backgroundColor: accent.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation(accent),
+                  ),
+                ),
+              ),
               const SizedBox(height: 28),
-              Expanded(child: _buildPaso(scale, hc)),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: AnimatedSwitcher(
+                    duration: reduceMotion(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 250),
+                    child: KeyedSubtree(
+                      key: ValueKey(_paso),
+                      child: _PreguntaWrapper(
+                        titulo: _preguntas[_paso],
+                        ayuda: _ayudas[_paso],
+                        scale: scale,
+                        hc: hc,
+                        child: _buildOpciones(scale, hc),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
-              PrimaryButton(
-                label: _paso < 3 ? 'Siguiente' : 'Ver resultados',
-                onPressed: _puedeAvanzar ? _siguiente : null,
+              Row(
+                children: [
+                  Expanded(
+                    child: SecondaryButton(
+                      label: 'Atrás',
+                      onPressed: _anterior,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: PrimaryButton(
+                      label: _paso < 3 ? 'Siguiente' : 'Ver resultados',
+                      icon: Icons.arrow_forward_rounded,
+                      trailingIcon: true,
+                      onPressed: _puedeAvanzar ? _siguiente : null,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -118,105 +186,80 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
     );
   }
 
-  Widget _buildPaso(double scale, bool hc) {
+  Widget _buildOpciones(double scale, bool hc) {
     switch (_paso) {
       case 0:
-        return _PreguntaWrapper(
-          titulo: '¿Cuál es tu edad?',
-          scale: scale,
-          hc: hc,
-          child: TextField(
-            controller: _edadController,
-            keyboardType: TextInputType.number,
-            style: AppTextStyles.body(scale, color: hc ? Colors.black : null),
-            decoration: InputDecoration(
-              hintText: 'Ej: 58',
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                    color: hc ? Colors.black : AppColors.creamDeep, width: 2),
+        return Column(
+          children: rangosEdadSimulador.map((r) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: OptionCard(
+                label: r,
+                selected: _rangoEdad == r,
+                highContrast: hc,
+                onTap: () => setState(() => _rangoEdad = r),
               ),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
+            );
+          }).toList(),
         );
       case 1:
-        return _PreguntaWrapper(
-          titulo: '¿Cuál es tu sexo?',
-          scale: scale,
-          hc: hc,
-          child: Row(
-            children: [
-              Expanded(
-                child: OptionCard(
-                  label: 'Mujer',
-                  selected: _sexo == 'Mujer',
-                  highContrast: hc,
-                  onTap: () => setState(() => _sexo = 'Mujer'),
-                ),
+        return Row(
+          children: [
+            Expanded(
+              child: OptionCard(
+                label: 'Mujer',
+                selected: _sexo == 'Mujer',
+                highContrast: hc,
+                onTap: () => setState(() => _sexo = 'Mujer'),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OptionCard(
-                  label: 'Hombre',
-                  selected: _sexo == 'Hombre',
-                  highContrast: hc,
-                  onTap: () => setState(() => _sexo = 'Hombre'),
-                ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OptionCard(
+                label: 'Hombre',
+                selected: _sexo == 'Hombre',
+                highContrast: hc,
+                onTap: () => setState(() => _sexo = 'Hombre'),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       case 2:
-        return _PreguntaWrapper(
-          titulo: '¿Cuál es tu estado civil?',
-          scale: scale,
-          hc: hc,
-          child: Column(
-            children: _estadosCiviles.map((e) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OptionCard(
-                  label: e,
-                  selected: _estadoCivil == e,
-                  highContrast: hc,
-                  onTap: () => setState(() => _estadoCivil = e),
-                ),
-              );
-            }).toList(),
-          ),
+        return Column(
+          children: _estadosCiviles.map((e) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: OptionCard(
+                label: e,
+                selected: _estadoCivil == e,
+                highContrast: hc,
+                onTap: () => setState(() => _estadoCivil = e),
+              ),
+            );
+          }).toList(),
         );
       case 3:
       default:
-        return _PreguntaWrapper(
-          titulo: '¿Tienes hijos/as?',
-          scale: scale,
-          hc: hc,
-          child: Row(
-            children: [
-              Expanded(
-                child: OptionCard(
-                  label: 'Sí',
-                  selected: _tieneHijos == true,
-                  highContrast: hc,
-                  onTap: () => setState(() => _tieneHijos = true),
-                ),
+        return Row(
+          children: [
+            Expanded(
+              child: OptionCard(
+                label: 'Sí',
+                selected: _tieneHijos == true,
+                highContrast: hc,
+                onTap: () => setState(() => _tieneHijos = true),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OptionCard(
-                  label: 'No',
-                  selected: _tieneHijos == false,
-                  highContrast: hc,
-                  onTap: () => setState(() => _tieneHijos = false),
-                ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OptionCard(
+                label: 'No',
+                selected: _tieneHijos == false,
+                highContrast: hc,
+                onTap: () => setState(() => _tieneHijos = false),
               ),
-            ],
-          ),
+            ),
+          ],
         );
     }
   }
@@ -224,12 +267,14 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
 
 class _PreguntaWrapper extends StatelessWidget {
   final String titulo;
+  final String ayuda;
   final double scale;
   final bool hc;
   final Widget child;
 
   const _PreguntaWrapper({
     required this.titulo,
+    required this.ayuda,
     required this.scale,
     required this.hc,
     required this.child,
@@ -244,6 +289,13 @@ class _PreguntaWrapper extends StatelessWidget {
           titulo,
           style: AppTextStyles.heading(scale, color: hc ? Colors.black : null),
         ),
+        if (ayuda.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            ayuda,
+            style: AppTextStyles.small(scale, color: hc ? Colors.black54 : null),
+          ),
+        ],
         const SizedBox(height: 24),
         child,
       ],

@@ -82,14 +82,17 @@ class ContenidoTemaScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(tema.icono,
-                    color: hc ? Colors.black : AppColors.teal, size: 28),
-                const SizedBox(width: 12),
+                IconBadge(
+                  icon: tema.icono,
+                  color: hc ? Colors.black : AppColors.teal,
+                  size: 52,
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     tema.resumen,
-                    style: AppTextStyles.small(scale,
-                        color: hc ? Colors.black54 : null),
+                    style: AppTextStyles.body(scale * 0.9,
+                        color: hc ? Colors.black87 : AppColors.inkSoft),
                   ),
                 ),
               ],
@@ -97,6 +100,13 @@ class ContenidoTemaScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -108,16 +118,26 @@ class ContenidoTemaScreen extends StatelessWidget {
               icon: const Icon(Icons.volume_up_outlined),
               label: const Text('Escuchar'),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            for (final parrafo in tema.contenido) ...[
-              Text(
-                parrafo,
-                style: AppTextStyles.body(scale,
-                    color: hc ? Colors.black87 : null),
+            JubiloCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < tema.contenido.length; i++) ...[
+                    Text(
+                      tema.contenido[i],
+                      style: AppTextStyles.body(scale,
+                          color: hc ? Colors.black87 : null),
+                    ),
+                    if (i != tema.contenido.length - 1)
+                      const SizedBox(height: 16),
+                  ],
+                ],
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
+            const SizedBox(height: 20),
 
             if (notaSegmento != null) ...[
               InfoBanner(
@@ -134,14 +154,36 @@ class ContenidoTemaScreen extends StatelessWidget {
                       color: hc ? Colors.black : null)),
               const SizedBox(height: 10),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 10,
+                runSpacing: 10,
                 children: tema.glosario.map((g) {
+                  final c = hc ? Colors.black : AppColors.coralDeep;
                   return InkWell(
                     onTap: () => _mostrarGlosario(context, g, hc),
-                    child: AppChip(
-                      label: '${g.termino}  ⓘ',
-                      color: hc ? Colors.black : AppColors.coralDeep,
+                    borderRadius: BorderRadius.circular(24),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: c.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: c.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: c),
+                          const SizedBox(width: 6),
+                          Text(
+                            g.termino,
+                            style: TextStyle(
+                              color: c,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),

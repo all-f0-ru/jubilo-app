@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/widgets/jubilo_motion.dart';
 import '../core/providers/settings_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 import '../core/widgets/jubilo_widgets.dart';
-import 'home_screen.dart';
+import 'main_shell.dart';
 
-/// Splash: logo + tagline, pasa sola a Bienvenida después de un
+/// 1️⃣ Splash: logo + tagline, pasa sola a Bienvenida después de un
 /// momento breve.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,7 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const WelcomeScreen(pageIndex: 0)),
+        JubiloPageRoute(builder: (_) => const WelcomeScreen(pageIndex: 0)),
       );
     });
   }
@@ -111,12 +112,12 @@ class WelcomeScreen extends StatelessWidget {
                 onPressed: () {
                   if (isLast) {
                     Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
+                      JubiloPageRoute(
                           builder: (_) => const FontSetupScreen()),
                     );
                   } else {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
+                      JubiloPageRoute(
                           builder: (_) => const WelcomeScreen(pageIndex: 1)),
                     );
                   }
@@ -198,7 +199,7 @@ class FontSetupScreen extends StatelessWidget {
                 label: 'Continuar',
                 onPressed: () {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    JubiloPageRoute(builder: (_) => const MainShell()),
                     (route) => false,
                   );
                 },
