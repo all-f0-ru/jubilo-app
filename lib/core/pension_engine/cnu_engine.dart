@@ -1,22 +1,20 @@
 /// Port a Dart de `cnu_V4_0.py` (motor de Capital Necesario Unitario).
 ///
-/// ESTADO: PORTADO PARCIALMENTE — solo el caso base "afiliado solo, sin
-/// beneficiarios" (equivalente a `cnu_afiliado()` en el archivo Python
-/// original). El resto de las funciones (cónyuge, hijos, hijos inválidos,
-/// conviviente civil, acrecimiento múltiple, sobrevivencia) todavía NO
-/// están portadas — se agregan de a poco en próximas reuniones, siguiendo
-/// el mismo archivo fuente `cnu_V4_0.py` línea por línea.
+/// ESTADO: PORTADO PARCIALMENTE — afiliado solo (`cnu_afiliado`) y
+/// afiliado con cónyuge sin hijos (`cnu_conyuge_sin_hijos`), ambos contra
+/// el `cnu.py` V4.2 entregado por el cliente. Hijos, conviviente civil y
+/// demás estructuras se agregan por etapas.
 ///
-/// IMPORTANTE: este motor no trae datos reales. Las tablas TM2020
-/// (qx e improvement) deben cargarse desde los CSV oficiales que entregue
-/// el supervisor — acá solo se define la estructura para recibirlas
-/// (ver [MortalityTable] y el TODO en la parte inferior de este archivo).
+/// Las tablas TM2020 (qx e improvement) se cargan desde los CSV en
+/// `assets/tm2020/` (ver tm2020_loader.dart).
 ///
 /// Fuente de referencia normativa (según el docstring del archivo Python
 /// original): Superintendencia de Pensiones, Nota Técnica N°9,
 /// noviembre 2024; Compendio de Normas del Sistema de Pensiones, Libro
 /// III, Título X; Tablas de Mortalidad TM2020.
 library;
+
+import 'dart:math' as math;
 
 /// Equivalente a `CNUError` en Python.
 class CNUException implements Exception {
@@ -241,15 +239,7 @@ double rateAt(Object interestRate, int t) {
 /// Factor de descuento v_t = 1 / (1+i_t)^t.
 double presentValueFactor(Object interestRate, int t) {
   final r = rateAt(interestRate, t);
-  return 1.0 / _powDouble(1.0 + r, t);
-}
-
-double _powDouble(double base, int exp) {
-  var result = 1.0;
-  for (var i = 0; i < exp; i++) {
-    result *= base;
-  }
-  return result;
+  return 1.0 / math.pow(1.0 + r, t).toDouble();
 }
 
 /// l_(x+t) / l_x para t años.
@@ -362,14 +352,80 @@ double cnuAfiliado({
   return result > 0.0 ? result : 0.0;
 }
 
+/// Término de cónyuge (porcentaje * suma de S_y(t) * (1-S_x(t)) * v_t).
+///
+/// Equivale a `_cnu_conyuge_condicional` del Python original.
+double _cnuConyugeCondicional({
+  required int edadAfiliado,
+  required int edadConyuge,
+  required MortalityTable tablaAfiliado,
+  required MortalityTable tablaConyuge,
+  required int calculationYear,
+  required Object interestRate,
+  required double porcentaje,
+}) {
+  final maxT = math.min(
+    tablaAfiliado.maxAge - edadAfiliado,
+    tablaConyuge.maxAge - edadConyuge,
+  );
+
+  var total = 0.0;
+
+  for (var t = 0; t <= maxT; t++) {
+    final sx = survivalRatio(
+      table: tablaAfiliado,
+      startAge: edadAfiliado,
+      years: t,
+      calculationYear: calculationYear,
+    );
+    final sy = survivalRatio(
+      table: tablaConyuge,
+      startAge: edadConyuge,
+      years: t,
+      calculationYear: calculationYear,
+    );
+
+    total += porcentaje * sy * (1.0 - sx) * presentValueFactor(interestRate, t);
+  }
+
+  return total > 0.0 ? total : 0.0;
+}
+
+/// CNU del cónyuge cuando NO hay hijos con derecho.
+///
+/// Ecuación (10) de la Nota Técnica N°9. A diferencia del afiliado, NO
+/// lleva la resta de 11/24:
+///
+///   CNU_c = 0,60 * suma de [S_y(t) * (1 - S_x(t)) * v_t]
+///
+/// Validada con el caso publicado por la Superintendencia (afiliada mujer
+/// de 60, cónyuge hombre de 65, tasa 3%, año 2024 => 0,633946).
+double cnuConyugeSinHijos({
+  required int edadAfiliado,
+  required int edadConyuge,
+  required MortalityTable tablaAfiliado,
+  required MortalityTable tablaConyuge,
+  required int calculationYear,
+  required Object interestRate,
+}) {
+  _validateCalculationYear(calculationYear);
+  return _cnuConyugeCondicional(
+    edadAfiliado: edadAfiliado,
+    edadConyuge: edadConyuge,
+    tablaAfiliado: tablaAfiliado,
+    tablaConyuge: tablaConyuge,
+    calculationYear: calculationYear,
+    interestRate: interestRate,
+    porcentaje: 0.60,
+  );
+}
+
 // ---------------------------------------------------------------------
-// TODO (próximas reuniones, según se reciban los archivos/tablas):
-// - Carga de tablas TM2020 desde CSV oficiales (cargarTablaCsv,
-//   cargarTablasTm2020 en el Python original).
-// - cnu_conyuge_sin_hijos, cnu_conyuge_con_hijos (CNU con cónyuge).
-// - cnu_hijo / cnu_hijo_invalido (CNU con hijos, con y sin invalidez).
-// - conviviente civil, madre/padre causante, acrecimiento múltiple.
-// - calcular_cnu_total (función que integra todos los casos).
-// - Los módulos bac.py, bono_hijo.py, pgu.py, eld.py, proyeccion_rp.py,
-//   cev.py y retiro_programado_V5.py (aún no entregados).
+// PENDIENTE (se agrega por etapas, siguiendo el Python original):
+// - cónyuge CON hijos, hijos (con y sin invalidez), conviviente civil,
+//   madre/padre del causante o del hijo, acrecimiento de múltiples adultos.
+//   Mientras no estén portados, `calcularCnuTotal` (cnu_grupo.dart) rechaza
+//   esas estructuras con un error explícito; no las aproxima.
+// - Los módulos de retiro programado (bac, bono_hijo, pgu, eld,
+//   proyeccion_rp, cev y retiro_programado_V5) siguen sin entregarse.
 // ---------------------------------------------------------------------
