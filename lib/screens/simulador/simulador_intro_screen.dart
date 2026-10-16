@@ -8,12 +8,59 @@ import '../../core/widgets/jubilo_widgets.dart';
 import '../../core/widgets/jubilo_app_bar.dart';
 import 'simulador_preguntas_screen.dart';
 
-const _temasConsultados = [
-  'Tu edad',
-  'Tu sexo',
-  'Tu estado civil',
-  'Si tienes hijos',
+class _TemaConsultado {
+  final String texto;
+  final IconData icono;
+  const _TemaConsultado(this.texto, this.icono);
+}
+
+const List<_TemaConsultado> _temasConsultados = [
+  _TemaConsultado('Edad', Icons.cake_outlined),
+  _TemaConsultado('Sexo', Icons.person_outline),
+  _TemaConsultado('Estado civil', Icons.favorite_border_rounded),
+  _TemaConsultado('Hijos', Icons.child_care_outlined),
 ];
+
+/// Etiqueta con ícono que adelanta de qué tratan las preguntas.
+class _EtiquetaTema extends StatelessWidget {
+  final String texto;
+  final IconData icono;
+  final bool hc;
+  final double scale;
+
+  const _EtiquetaTema({
+    required this.texto,
+    required this.icono,
+    required this.hc,
+    required this.scale,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hc ? Colors.black : AppColors.tealDeep;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icono, size: 20, color: color),
+          const SizedBox(width: 8),
+          Text(texto,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 16 * scale,
+              )),
+        ],
+      ),
+    );
+  }
+}
 
 /// Raíz de la pestaña "Simular": explica qué hace el simulador y deja
 /// claro, desde antes de empezar, que es una simulación orientativa y
@@ -81,40 +128,23 @@ class SimuladorIntroScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final t in _temasConsultados)
+                  _EtiquetaTema(texto: t.texto, icono: t.icono, hc: hc, scale: scale),
+              ],
+            ),
+            const SizedBox(height: 20),
+
             InfoBanner(
               variant: BannerVariant.info,
               fontScale: scale,
-              text: 'Esta es una simulación educativa y orientativa, no '
-                  'un cálculo real de tu pensión. Para un monto exacto, '
-                  'consulta a tu AFP.',
+              text: 'Simulación educativa. Para un monto exacto, consulta a '
+                  'tu AFP.',
             ),
-            const SizedBox(height: 24),
-
-            Text('Te preguntaremos sobre:',
-                style: AppTextStyles.heading(scale * 0.8,
-                    color: hc ? Colors.black : null)),
-            const SizedBox(height: 10),
-            ..._temasConsultados.map((t) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: hc ? Colors.black : AppColors.inkSoft,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(t,
-                        style: AppTextStyles.body(scale,
-                            color: hc ? Colors.black87 : null)),
-                  ],
-                ),
-              );
-            }),
             const SizedBox(height: 28),
 
             PrimaryButton(

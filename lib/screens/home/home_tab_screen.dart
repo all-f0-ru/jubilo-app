@@ -111,10 +111,8 @@ class HomeTabScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     segmentInfo != null
-                        ? 'Revisa tus temas personalizados y simula tus '
-                            'opciones de pensión.'
-                        : 'Cuéntanos tu edad y sexo para mostrarte '
-                            'contenido relevante para ti.',
+                        ? 'Tu guía ya está personalizada.'
+                        : 'Cuéntanos tu edad y sexo.',
                     style: AppTextStyles.body(scale,
                         color: Colors.white.withValues(alpha: 0.92)),
                   ),
@@ -152,7 +150,7 @@ class HomeTabScreen extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: capsulasInformativas.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, i) {
                   return _CapsulaCard(
                     capsula: capsulasInformativas[i],
@@ -167,7 +165,7 @@ class HomeTabScreen extends StatelessWidget {
             _AccionCard(
               icon: Icons.menu_book_outlined,
               title: 'Aprender sobre mi pensión',
-              subtitle: 'Temas explicados con calma',
+              subtitle: 'Temas simples y claros',
               color: hc ? Colors.black12 : AppColors.creamDeep,
               iconColor: hc ? Colors.black : AppColors.tealDeep,
               textColor: hc ? Colors.black : AppColors.ink,
@@ -178,7 +176,7 @@ class HomeTabScreen extends StatelessWidget {
             _AccionCard(
               icon: Icons.calculate_outlined,
               title: 'Simular mi pensión',
-              subtitle: '4 preguntas simples y orientativas',
+              subtitle: 'Calcula tu pensión en 1 minuto',
               color: hc ? Colors.black : AppColors.coral,
               iconColor: Colors.white,
               textColor: Colors.white,

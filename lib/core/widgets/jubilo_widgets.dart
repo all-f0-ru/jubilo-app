@@ -345,3 +345,179 @@ class AppChip extends StatelessWidget {
     );
   }
 }
+
+/// Sección que se abre y se cierra con un toque. Deja la pantalla limpia:
+/// el detalle aparece solo cuando la persona lo pide.
+class Plegable extends StatefulWidget {
+  final String titulo;
+  final IconData? icono;
+  final Color? color;
+  final Widget child;
+  final bool abiertoInicial;
+  final bool highContrast;
+  final double fontScale;
+
+  /// Texto corto a la derecha del título (ej. la cantidad de ítems).
+  final String? detalle;
+
+  const Plegable({
+    super.key,
+    required this.titulo,
+    required this.child,
+    this.icono,
+    this.color,
+    this.abiertoInicial = false,
+    this.highContrast = false,
+    this.fontScale = 1.0,
+    this.detalle,
+  });
+
+  @override
+  State<Plegable> createState() => _PlegableState();
+}
+
+class _PlegableState extends State<Plegable> {
+  late bool _abierto = widget.abiertoInicial;
+
+  @override
+  Widget build(BuildContext context) {
+    final hc = widget.highContrast;
+    final color = hc ? Colors.black : (widget.color ?? AppColors.teal);
+    final duracion = reduceMotion(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
+
+    return JubiloCard(
+      padding: EdgeInsets.zero,
+      borderColor: hc ? Colors.black : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _abierto = !_abierto);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Row(
+                children: [
+                  if (widget.icono != null) ...[
+                    IconBadge(icon: widget.icono!, color: color, size: 40),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Text(
+                      widget.titulo,
+                      style: AppTextStyles.heading(widget.fontScale * 0.74,
+                          color: hc ? Colors.black : null),
+                    ),
+                  ),
+                  if (widget.detalle != null) ...[
+                    AppChip(label: widget.detalle!, color: color),
+                    const SizedBox(width: 8),
+                  ],
+                  AnimatedRotation(
+                    turns: _abierto ? 0.5 : 0,
+                    duration: duracion,
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 28,
+                      color: hc ? Colors.black : AppColors.inkSoft,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: duracion,
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _abierto
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                    child: widget.child,
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Selector numérico con botones − y + grandes, para no obligar a usar el
+/// teclado (ej. la edad).
+class StepperNumero extends StatelessWidget {
+  final int valor;
+  final int minimo;
+  final int maximo;
+  final String sufijo;
+  final ValueChanged<int> onChanged;
+  final bool highContrast;
+  final double fontScale;
+
+  const StepperNumero({
+    super.key,
+    required this.valor,
+    required this.minimo,
+    required this.maximo,
+    required this.onChanged,
+    this.sufijo = '',
+    this.highContrast = false,
+    this.fontScale = 1.0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = highContrast ? Colors.black : AppColors.teal;
+    final texto = sufijo.isEmpty ? '$valor' : '$valor $sufijo';
+
+    Widget boton(IconData icono, String etiqueta, bool activo, int delta) {
+      return Semantics(
+        button: true,
+        enabled: activo,
+        label: etiqueta,
+        child: PressableScale(
+          enabled: activo,
+          child: Material(
+            color: activo ? accent : accent.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: activo
+                  ? () {
+                      HapticFeedback.selectionClick();
+                      onChanged(valor + delta);
+                    }
+                  : null,
+              child: SizedBox(
+                width: 60,
+                height: 60,
+                child: Icon(icono, color: Colors.white, size: 30),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        boton(Icons.remove_rounded, 'Restar uno', valor > minimo, -1),
+        Expanded(
+          child: Center(
+            child: Text(
+              texto,
+              style: AppTextStyles.heading(fontScale,
+                  color: highContrast ? Colors.black : null),
+            ),
+          ),
+        ),
+        boton(Icons.add_rounded, 'Sumar uno', valor < maximo, 1),
+      ],
+    );
+  }
+}

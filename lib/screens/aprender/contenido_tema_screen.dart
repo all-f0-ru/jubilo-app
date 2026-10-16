@@ -5,16 +5,13 @@ import '../../core/models/user_segment.dart';
 import '../../core/models/topic.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
+import '../../core/widgets/boton_escuchar.dart';
 import '../../core/widgets/jubilo_widgets.dart';
 
-/// 9️⃣ "Contenido de tema": desarrollo completo de un tema, con una nota
-/// extra si aplica al segmento de la persona, chips de glosario tocables
-/// (abren una hoja inferior con la definición) y un botón "Escuchar".
-///
-/// Nota: el botón "Escuchar" todavía no está conectado a una librería de
-/// texto a voz real (requeriría agregar el paquete flutter_tts al
-/// proyecto). Por ahora muestra un aviso, para no prometer algo que
-/// todavía no funciona.
+/// 9️⃣ "Contenido de tema": primero el párrafo esencial, el resto plegado
+/// ("Seguir leyendo"), una nota extra si aplica al segmento de la persona,
+/// chips de glosario tocables (abren una hoja inferior con la definición)
+/// y un botón "Escuchar" que lee el tema en voz alta.
 class ContenidoTemaScreen extends StatelessWidget {
   final Topic tema;
   final UserSegmentInfo segmentInfo;
@@ -67,6 +64,7 @@ class ContenidoTemaScreen extends StatelessWidget {
     final scale = settings.fontScale.multiplier;
     final hc = settings.highContrast;
     final notaSegmento = tema.notaPorSegmento[segmentInfo.segmento];
+    final textoVoz = [tema.titulo, ...tema.contenido].join('. ');
 
     return Scaffold(
       backgroundColor: hc ? Colors.white : AppColors.cream,
@@ -99,44 +97,49 @@ class ContenidoTemaScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: BotonEscuchar(
+                highContrast: hc,
+                texto: textoVoz,
               ),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                        'Lectura en voz alta: función en desarrollo'),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.volume_up_outlined),
-              label: const Text('Escuchar'),
             ),
             const SizedBox(height: 24),
 
-            JubiloCard(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (int i = 0; i < tema.contenido.length; i++) ...[
-                    Text(
-                      tema.contenido[i],
-                      style: AppTextStyles.body(scale,
-                          color: hc ? Colors.black87 : null),
-                    ),
-                    if (i != tema.contenido.length - 1)
-                      const SizedBox(height: 16),
-                  ],
-                ],
+            // Primero lo esencial; el resto se abre solo si la persona quiere.
+            if (tema.contenido.isNotEmpty)
+              JubiloCard(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  tema.contenido.first,
+                  style: AppTextStyles.body(scale,
+                      color: hc ? Colors.black87 : null),
+                ),
               ),
-            ),
+            if (tema.contenido.length > 1) ...[
+              const SizedBox(height: 12),
+              Plegable(
+                titulo: 'Seguir leyendo',
+                icono: Icons.menu_book_outlined,
+                color: hc ? Colors.black : AppColors.teal,
+                highContrast: hc,
+                fontScale: scale,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (int i = 1; i < tema.contenido.length; i++) ...[
+                      Text(
+                        tema.contenido[i],
+                        style: AppTextStyles.body(scale,
+                            color: hc ? Colors.black87 : null),
+                      ),
+                      if (i != tema.contenido.length - 1)
+                        const SizedBox(height: 16),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
 
             if (notaSegmento != null) ...[

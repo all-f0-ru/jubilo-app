@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/jubilo_motion.dart';
 import '../../core/providers/settings_provider.dart';
@@ -7,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_widgets.dart';
 import '../modalidades/modalidad_detail_screen.dart';
+import 'simulador_estimacion_screen.dart';
 
 /// Resultados del simulador: las 4 modalidades ordenadas según una
 /// sugerencia orientativa calculada a partir de las respuestas (no es
@@ -23,6 +25,7 @@ class SimuladorResultadosScreen extends StatelessWidget {
     final scale = settings.fontScale.multiplier;
     final hc = settings.highContrast;
     final ordenadas = ordenarModalidadesPara(respuestas);
+    final chipColor = hc ? Colors.black : AppColors.teal;
 
     return Scaffold(
       backgroundColor: hc ? Colors.white : AppColors.cream,
@@ -36,34 +39,88 @@ class SimuladorResultadosScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           children: [
-            InfoBanner(
-              variant: BannerVariant.warning,
-              fontScale: scale,
-              text: 'Simulación educativa, no un cálculo real. Estos '
-                  'resultados son orientativos según tus respuestas.',
+            // Tu perfil en etiquetas cortas, en vez de una frase larga.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                AppChip(label: respuestas.rangoEdad, color: chipColor),
+                AppChip(label: respuestas.sexo, color: chipColor),
+                AppChip(label: respuestas.estadoCivil, color: chipColor),
+                AppChip(
+                    label: respuestas.tieneHijos ? 'Con hijos/as' : 'Sin hijos/as',
+                    color: chipColor),
+              ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
-            JubiloCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('TU PERFIL',
-                      style: TextStyle(
-                        color: hc ? Colors.black54 : AppColors.inkSoft,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                      )),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${respuestas.rangoEdad} · ${respuestas.sexo} · '
-                    '${respuestas.estadoCivil} · '
-                    '${respuestas.tieneHijos ? "Con hijos/as" : "Sin hijos/as"}',
-                    style: AppTextStyles.body(scale, color: hc ? Colors.black87 : null),
+            // Acceso a la estimación con el motor actuarial (renta vitalicia).
+            // Es lo principal de esta pantalla, por eso va de color pleno.
+            PressableScale(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  Navigator.of(context).push(
+                    JubiloPageRoute(
+                      builder: (_) =>
+                          SimuladorEstimacionScreen(respuestas: respuestas),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: chipColor,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: chipColor.withValues(alpha: 0.28),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.calculate_outlined,
+                            color: Colors.white, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Calcula tu pensión',
+                                style: AppTextStyles.heading(scale * 0.8,
+                                    color: Colors.white)),
+                            const SizedBox(height: 2),
+                            Text('Con tu saldo ahorrado',
+                                style: AppTextStyles.small(scale,
+                                    color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_rounded,
+                          color: Colors.white),
+                    ],
+                  ),
+                ),
               ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Orientativo, según tus respuestas.',
+              style: AppTextStyles.small(scale, color: hc ? Colors.black54 : null),
             ),
             const SizedBox(height: 20),
 
@@ -149,6 +206,8 @@ class _ModalidadRankCard extends StatelessWidget {
                         color: hc ? Colors.black : null)),
                 const SizedBox(height: 4),
                 Text(modalidad.idealPara,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.small(scale,
                         color: hc ? Colors.black54 : null)),
               ],
