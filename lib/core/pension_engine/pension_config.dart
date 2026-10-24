@@ -27,6 +27,21 @@ class ParametrosVigentes {
   static final DateTime tasaFechaConsulta = DateTime(2026, 10, 13);
 
   // -------------------------------------------------------------------
+  // Tasa del Retiro Programado
+  // -------------------------------------------------------------------
+
+  /// 3,31 % anual (en decimal). PROVISORIA: es el valor del ejemplo del
+  /// documento "Modalidad de retiro Programado V5" del cliente, no una tasa
+  /// oficial vigente. Pendiente de confirmar con el cliente (valor y fuente).
+  static const double tasaRetiroProgramado = 0.0331;
+
+  /// Mientras sea true, la pantalla avisa que la tasa es provisoria.
+  static const bool tasaRetiroProgramadoProvisoria = true;
+
+  static const String tasaRetiroProgramadoFuente =
+      'Valor de ejemplo del documento del cliente (provisorio, por confirmar).';
+
+  // -------------------------------------------------------------------
   // Valor de la UF
   // -------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -45,9 +46,8 @@ const List<_FuenteOficial> _fuentes = [
 
 /// Pantalla de Ayuda, accesible desde el ícono (?) en cualquier pestaña.
 /// Reúne solo fuentes oficiales (Superintendencia de Pensiones, IPS,
-/// ChileAtiende). Por ahora, al tocar una fuente se copia su dirección
-/// web; abrirla directo en el navegador requeriría agregar el paquete
-/// url_launcher al proyecto.
+/// ChileAtiende). Al tocar una fuente se abre su sitio (url_launcher); si
+/// no se puede abrir, se copia la dirección.
 class AyudaScreen extends StatelessWidget {
   const AyudaScreen({super.key});
 
@@ -84,7 +84,7 @@ class AyudaScreen extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: JubiloCard(
-                  onTap: () => _copiarDireccion(context, f.direccion),
+                  onTap: () => _abrirDireccion(context, f.direccion),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -104,7 +104,7 @@ class AyudaScreen extends StatelessWidget {
                             const SizedBox(height: 8),
                             Row(
                               children: [
-                                Icon(Icons.copy_rounded, size: 16, color: color),
+                                Icon(Icons.open_in_new_rounded, size: 16, color: color),
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
@@ -133,7 +133,7 @@ class AyudaScreen extends StatelessWidget {
               fontScale: scale,
               text: 'Jubilo es una guía educativa. Para trámites oficiales, '
                   'contacta a tu AFP o a las instituciones de esta lista. '
-                  'Toca una para copiar su dirección web.',
+                  'Toca una para abrirla.',
             ),
           ],
         ),
@@ -141,10 +141,15 @@ class AyudaScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _copiarDireccion(BuildContext context, String direccion) async {
+  /// Abre solo las direcciones de la lista oficial. Si no se puede abrir,
+  /// copia la dirección para que la persona la pegue en su navegador.
+  Future<void> _abrirDireccion(BuildContext context, String direccion) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await launchUrl(Uri.parse('https://$direccion'),
+        mode: LaunchMode.externalApplication);
+    if (ok) return;
     await Clipboard.setData(ClipboardData(text: direccion));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(content: Text('Dirección copiada: $direccion')),
     );
   }

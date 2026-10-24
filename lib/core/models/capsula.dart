@@ -26,13 +26,19 @@ const List<CapsulaInformativa> capsulasInformativas = [
     titulo: '¿Qué es la jubilación en Chile?',
     descripcion: 'Una explicación simple de cómo funciona el sistema de '
         'pensiones.',
-    duracion: '3 min',
+    duracion: 'Video',
+    // VALIDAR: título en YouTube "¿Sabes cómo funciona el sistema de
+    // pensiones en Chile?". No pude confirmar canal, duración ni contenido.
+    videoUrl: 'https://www.youtube.com/watch?v=jMjP-ANJa2I',
   ),
   CapsulaInformativa(
     id: 'modalidades_pension',
     titulo: 'Las 4 modalidades de pensión',
     descripcion: 'Conoce las formas de recibir tu pensión al jubilarte.',
-    duracion: '4 min',
+    duracion: 'Video',
+    // MetLife Chile: "Diferencias entre el Retiro Programado y la Renta
+    // Vitalicia". Validar duración y contenido antes de entregar.
+    videoUrl: 'https://www.youtube.com/watch?v=rcHvCkAG6TY',
   ),
   CapsulaInformativa(
     id: 'ahorro_cotizaciones',
@@ -44,19 +50,27 @@ const List<CapsulaInformativa> capsulasInformativas = [
     id: 'edad_legal_requisitos',
     titulo: 'Edad legal y requisitos para jubilar',
     descripcion: 'Cuándo puedes empezar a pensionarte y qué necesitas.',
-    duracion: '2 min',
+    duracion: 'Video corto',
+    // VALIDAR: short "¿Jubilación anticipada en Chile? Conoce los requisitos
+    // clave". Habla de jubilación anticipada, no de la edad legal.
+    videoUrl: 'https://www.youtube.com/shorts/J650-KpwL84',
   ),
   CapsulaInformativa(
     id: 'beneficios_adicionales',
     titulo: 'PGU, Bono por Hijo y más',
     descripcion: 'Ayudas del Estado que pueden sumarse a tu pensión.',
-    duracion: '3 min',
+    duracion: 'Video corto',
+    // ChileAtiende (oficial), short sobre la PGU.
+    videoUrl: 'https://www.youtube.com/watch?v=gDHb_8pbTWU',
   ),
   CapsulaInformativa(
     id: 'documentos_tramites',
     titulo: 'Documentos y trámites para jubilar',
     descripcion: 'Qué necesitas y en qué orden hacer el trámite.',
-    duracion: '3 min',
+    duracion: 'Video',
+    // Javiera Quiroga con Confuturo: proceso paso a paso. Canal no oficial;
+    // validar o reemplazar por uno de ChileAtiende / Superintendencia.
+    videoUrl: 'https://www.youtube.com/watch?v=dtEBz14w7Eo',
   ),
   CapsulaInformativa(
     id: 'preguntas_frecuentes',

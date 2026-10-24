@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/jubilo_motion.dart';
 import '../../core/providers/settings_provider.dart';
@@ -8,7 +7,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_widgets.dart';
 import '../modalidades/modalidad_detail_screen.dart';
-import 'simulador_estimacion_screen.dart';
 
 /// Resultados del simulador: las 4 modalidades ordenadas según una
 /// sugerencia orientativa calculada a partir de las respuestas (no es
@@ -54,72 +52,9 @@ class SimuladorResultadosScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
 
-            // Acceso a la estimación con el motor actuarial (renta vitalicia).
-            // Es lo principal de esta pantalla, por eso va de color pleno.
-            PressableScale(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  Navigator.of(context).push(
-                    JubiloPageRoute(
-                      builder: (_) =>
-                          SimuladorEstimacionScreen(respuestas: respuestas),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: chipColor,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: chipColor.withValues(alpha: 0.28),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.calculate_outlined,
-                            color: Colors.white, size: 26),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Calcula tu pensión',
-                                style: AppTextStyles.heading(scale * 0.8,
-                                    color: Colors.white)),
-                            const SizedBox(height: 2),
-                            Text('Con tu saldo ahorrado',
-                                style: AppTextStyles.small(scale,
-                                    color: Colors.white70)),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.arrow_forward_rounded,
-                          color: Colors.white),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
             Text(
-              'Orientativo, según tus respuestas.',
+              'Orientativo, según tus respuestas. Toca una modalidad '
+              'para ver su detalle y calcular tu pensión.',
               style: AppTextStyles.small(scale, color: hc ? Colors.black54 : null),
             ),
             const SizedBox(height: 20),
@@ -142,8 +77,8 @@ class SimuladorResultadosScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       JubiloPageRoute(
-                        builder: (_) =>
-                            ModalidadDetailScreen(modalidad: ordenadas[i]),
+                        builder: (_) => ModalidadDetailScreen(
+                            modalidad: ordenadas[i], respuestas: respuestas),
                       ),
                     );
                   },
@@ -210,6 +145,11 @@ class _ModalidadRankCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.small(scale,
                         color: hc ? Colors.black54 : null)),
+                if (modalidad.id == 'renta_vitalicia_inmediata' ||
+                    modalidad.id == 'retiro_programado') ...[
+                  const SizedBox(height: 8),
+                  AppChip(label: 'Con calculadora', color: color),
+                ],
               ],
             ),
           ),

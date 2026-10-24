@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/pension_engine/cnu_engine.dart';
 import '../../core/pension_engine/pension_config.dart';
 import '../../core/pension_engine/renta_vitalicia.dart';
+import '../../core/pension_engine/retiro_programado.dart';
 import '../../core/pension_engine/tm2020_assets.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
@@ -25,11 +26,47 @@ import '../../core/widgets/jubilo_widgets.dart';
 class SimuladorEstimacionScreen extends StatefulWidget {
   final SimuladorRespuestas respuestas;
 
-  const SimuladorEstimacionScreen({super.key, required this.respuestas});
+  /// Qué algoritmo usa el cálculo. Cada modalidad tiene el suyo.
+  final ModalidadCalculo modalidad;
+
+  const SimuladorEstimacionScreen({
+    super.key,
+    required this.respuestas,
+    this.modalidad = ModalidadCalculo.rentaVitalicia,
+  });
 
   @override
   State<SimuladorEstimacionScreen> createState() =>
       _SimuladorEstimacionScreenState();
+}
+
+/// Modalidades que tienen cálculo propio en la app.
+enum ModalidadCalculo { rentaVitalicia, retiroProgramado }
+
+/// Resultado común que muestra la pantalla, venga del algoritmo que venga.
+/// Los nombres calzan con los de ResultadoRentaVitalicia.
+class _Salida {
+  final double primaUf; // saldo en UF
+  final double valorUf;
+  final double pensionMensualUf;
+  final double pensionMensualClp;
+  final double cnuTotal;
+  final double cnuConyuge;
+  final double tasaRentaVitalicia; // tasa usada (RVI o RP)
+  final double umbralMinimoUf;
+  final bool cumpleUmbralMinimo;
+
+  const _Salida({
+    required this.primaUf,
+    required this.valorUf,
+    required this.pensionMensualUf,
+    required this.pensionMensualClp,
+    required this.cnuTotal,
+    required this.cnuConyuge,
+    required this.tasaRentaVitalicia,
+    required this.umbralMinimoUf,
+    required this.cumpleUmbralMinimo,
+  });
 }
 
 /// Agrega puntos de miles a un texto de dígitos. Ej: 1200000 -> 1.200.000
@@ -78,8 +115,10 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
   Map<String, MortalityTable>? _tablas;
   String? _errorCarga;
 
-  ResultadoRentaVitalicia? _resultado;
+  _Salida? _resultado;
   String? _errorCalculo;
+
+  bool get _esRp => widget.modalidad == ModalidadCalculo.retiroProgramado;
 
   bool get _conConyuge => widget.respuestas.estadoCivil == 'Casado/a';
 
@@ -181,24 +220,60 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
       beneficiarios: beneficiarios,
     );
 
-    final parametros = ParametrosRvi(
-      fechaReferencia: hoy,
-      tasaReferencia: ParametrosVigentes.tasaReferencia,
-    );
-
-    final primaUf = saldoClp / ParametrosVigentes.valorUf;
+    final saldoUf = saldoClp / ParametrosVigentes.valorUf;
 
     try {
-      _resultado = calcularRentaVitalicia(
-        primaUf: primaUf,
-        grupoFamiliar: grupo,
-        parametros: parametros,
-        valorUf: ParametrosVigentes.valorUf,
-        tablas: tablas,
-      );
+      if (_esRp) {
+        final r = calcularRetiroProgramado(
+          saldoUf: saldoUf,
+          grupoFamiliar: grupo,
+          parametros: ParametrosRp(
+            fechaReferencia: hoy,
+            tasaRp: ParametrosVigentes.tasaRetiroProgramado,
+            versionTasa: ParametrosVigentes.tasaRetiroProgramadoFuente,
+          ),
+          valorUf: ParametrosVigentes.valorUf,
+          tablas: tablas,
+        );
+        _resultado = _Salida(
+          primaUf: r.saldoTotalUf,
+          valorUf: r.valorUf,
+          pensionMensualUf: r.pensionMensualUf,
+          pensionMensualClp: r.pensionMensualClp,
+          cnuTotal: r.cnuTotal,
+          cnuConyuge: r.cnuConyuge,
+          tasaRentaVitalicia: r.tasaRp,
+          umbralMinimoUf: 0,
+          cumpleUmbralMinimo: true,
+        );
+      } else {
+        final r = calcularRentaVitalicia(
+          primaUf: saldoUf,
+          grupoFamiliar: grupo,
+          parametros: ParametrosRvi(
+            fechaReferencia: hoy,
+            tasaReferencia: ParametrosVigentes.tasaReferencia,
+          ),
+          valorUf: ParametrosVigentes.valorUf,
+          tablas: tablas,
+        );
+        _resultado = _Salida(
+          primaUf: r.primaUf,
+          valorUf: r.valorUf,
+          pensionMensualUf: r.pensionMensualUf,
+          pensionMensualClp: r.pensionMensualClp,
+          cnuTotal: r.cnuTotal,
+          cnuConyuge: r.cnuConyuge,
+          tasaRentaVitalicia: r.tasaRentaVitalicia,
+          umbralMinimoUf: r.umbralMinimoUf,
+          cumpleUmbralMinimo: r.cumpleUmbralMinimo,
+        );
+      }
     } on CNUException catch (e) {
       _errorCalculo = e.message;
     } on RentaVitaliciaException catch (e) {
+      _errorCalculo = e.message;
+    } on RetiroProgramadoException catch (e) {
       _errorCalculo = e.message;
     }
   }
@@ -323,6 +398,22 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
               ],
             ),
 
+            const SizedBox(height: 16),
+            Plegable(
+              titulo: '¿Dónde veo mi saldo?',
+              icono: Icons.help_outline_rounded,
+              color: hc ? Colors.black : AppColors.teal,
+              highContrast: hc,
+              fontScale: scale,
+              child: Text(
+                'Pide tu Certificado de Saldo en el sitio o la app de tu AFP, '
+                'con tu ClaveÚnica. También puedes ir a una sucursal con tu '
+                'cédula. Usa el monto que aparece como saldo total.',
+                style: AppTextStyles.body(scale,
+                    color: hc ? Colors.black87 : null),
+              ),
+            ),
+
             if (_conConyuge) ...[
               const SizedBox(height: 28),
               _titulo('Tu cónyuge', scale, hc),
@@ -370,7 +461,9 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
 
             const SizedBox(height: 28),
             Text(
-              'Estimación educativa. No es una oferta de una aseguradora.',
+              _esRp
+                  ? 'Estimación educativa. El monto real lo calcula tu AFP.'
+                  : 'Estimación educativa. No es una oferta de una aseguradora.',
               textAlign: TextAlign.center,
               style:
                   AppTextStyles.small(scale, color: hc ? Colors.black54 : null),
@@ -462,23 +555,39 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
     }
   }
 
-  Widget _buildResultado(ResultadoRentaVitalicia r, double scale, bool hc) {
+  Widget _buildResultado(_Salida r, double scale, bool hc) {
     final accent = hc ? Colors.black : AppColors.teal;
     final saldoClp = r.primaUf * r.valorUf;
     final tasa =
         (r.tasaRentaVitalicia * 100).toStringAsFixed(2).replaceAll('.', ',');
 
+    final bajo = !r.cumpleUmbralMinimo;
+    final tonoCifra = bajo
+        ? (hc ? Colors.black54 : AppColors.inkSoft)
+        : (hc ? Colors.black : AppColors.tealDeep);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Con saldo bajo, primero el aviso y después la cifra (atenuada).
+        if (bajo) ...[
+          InfoBanner(
+            variant: BannerVariant.warning,
+            fontScale: scale,
+            text: 'Con este saldo la pensión queda bajo el mínimo de '
+                '${_fmtUf(r.umbralMinimoUf)} UF para contratar una renta '
+                'vitalicia. Consulta por otras modalidades y por la PGU.',
+          ),
+          const SizedBox(height: 12),
+        ],
         JubiloCard(
-          borderColor: accent,
-          borderWidth: 2,
+          borderColor: bajo ? null : accent,
+          borderWidth: bajo ? 1 : 2,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'PENSIÓN MENSUAL ESTIMADA',
+                bajo ? 'MONTO REFERENCIAL' : 'PENSIÓN MENSUAL ESTIMADA',
                 style: TextStyle(
                   color: hc ? Colors.black54 : AppColors.inkSoft,
                   fontSize: 12,
@@ -503,13 +612,12 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     _fmtClp(valor),
-                    style: AppTextStyles.display(scale,
-                        color: hc ? Colors.black : AppColors.tealDeep),
+                    style: AppTextStyles.display(scale, color: tonoCifra),
                   ),
                 ),
               ),
               Text(
-                'al mes, de por vida',
+                _esRp ? 'al mes, el primer año' : 'al mes, de por vida',
                 style: AppTextStyles.body(scale,
                     color: hc ? Colors.black87 : null),
               ),
@@ -518,7 +626,11 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  AppChip(label: 'Se reajusta con la UF', color: accent),
+                  AppChip(
+                      label: _esRp
+                          ? 'Se recalcula cada año'
+                          : 'Se reajusta con la UF',
+                      color: accent),
                   if (r.cnuConyuge > 0)
                     AppChip(label: 'Incluye a tu cónyuge', color: accent),
                 ],
@@ -526,22 +638,26 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
               const SizedBox(height: 14),
               BotonEscuchar(
                 highContrast: hc,
-                texto: 'Tu pensión mensual estimada es de '
-                    '${r.pensionMensualClp.round()} pesos. Se reajusta con '
-                    'la UF y se paga de por vida. Es una estimación '
-                    'educativa, no una oferta de una aseguradora.',
+                texto: _esRp
+                    ? 'Tu pensión mensual estimada para el primer año es de '
+                        '${r.pensionMensualClp.round()} pesos. El monto se '
+                        'recalcula cada año y puede subir o bajar. Es una '
+                        'estimación educativa.'
+                    : 'Tu pensión mensual estimada es de '
+                        '${r.pensionMensualClp.round()} pesos. Se reajusta con '
+                        'la UF y se paga de por vida. Es una estimación '
+                        'educativa, no una oferta de una aseguradora.',
               ),
             ],
           ),
         ),
-        if (!r.cumpleUmbralMinimo) ...[
+        if (_esRp) ...[
           const SizedBox(height: 12),
           InfoBanner(
-            variant: BannerVariant.warning,
+            variant: BannerVariant.info,
             fontScale: scale,
-            text: 'Con este saldo la pensión queda bajo el mínimo de '
-                '${_fmtUf(r.umbralMinimoUf)} UF para contratar una renta '
-                'vitalicia. Consulta por otras modalidades y por la PGU.',
+            text: 'Es el monto del primer año. Cada año se recalcula según '
+                'tu saldo y tu edad, y puede subir o bajar.',
           ),
         ],
         const SizedBox(height: 14),
@@ -565,7 +681,14 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                 scale,
                 hc,
               ),
-              _dato('Tasa de referencia', '$tasa % anual', scale, hc),
+              _dato(
+                _esRp ? 'Tasa de Retiro Programado' : 'Tasa de referencia',
+                _esRp && ParametrosVigentes.tasaRetiroProgramadoProvisoria
+                    ? '$tasa % anual (provisoria)'
+                    : '$tasa % anual',
+                scale,
+                hc,
+              ),
               _dato('Mortalidad', 'Tablas oficiales TM2020', scale, hc),
               _dato(
                 'Factor actuarial (CNU)',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/widgets/jubilo_motion.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/providers/main_tab_provider.dart';
@@ -150,7 +151,7 @@ class HomeTabScreen extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: capsulasInformativas.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, i) {
                   return _CapsulaCard(
                     capsula: capsulasInformativas[i],
@@ -222,10 +223,28 @@ class _CapsulaCard extends StatelessWidget {
       width: 170,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video disponible pronto')),
-          );
+        onTap: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          final url = capsula.videoUrl;
+          if (url == null) {
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Video disponible pronto')),
+            );
+            return;
+          }
+          try {
+            final ok = await launchUrl(Uri.parse(url));
+            if (!ok) {
+              messenger.showSnackBar(
+                const SnackBar(content: Text('No se pudo abrir el video')),
+              );
+            }
+          } catch (e) {
+            debugPrint('Error al abrir video: $e');
+            messenger.showSnackBar(
+              SnackBar(content: Text('Error al abrir el video: $e')),
+            );
+          }
         },
         child: Container(
           decoration: BoxDecoration(

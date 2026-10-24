@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../core/widgets/jubilo_motion.dart';
+import '../simulador/simulador_estimacion_screen.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -14,7 +17,45 @@ import '../../core/widgets/jubilo_app_bar.dart';
 class ModalidadDetailScreen extends StatelessWidget {
   final ModalidadInfo modalidad;
 
-  const ModalidadDetailScreen({super.key, required this.modalidad});
+  /// Respuestas del simulador, si la persona llegó desde ahí. Se usan para
+  /// precargar la calculadora de la Renta Vitalicia Inmediata.
+  final SimuladorRespuestas? respuestas;
+
+  const ModalidadDetailScreen({
+    super.key,
+    required this.modalidad,
+    this.respuestas,
+  });
+
+  /// Rango de edad del simulador a partir de la edad guardada en Ajustes.
+  static String _rangoDesdeEdad(int? edad) {
+    if (edad == null) return '61 a 64';
+    if (edad <= 55) return '55 o menos';
+    if (edad <= 60) return '56 a 60';
+    if (edad <= 64) return '61 a 64';
+    return '65 o más';
+  }
+
+  void _abrirCalculadora(BuildContext context, SettingsProvider settings) {
+    HapticFeedback.selectionClick();
+    final r = respuestas ??
+        SimuladorRespuestas(
+          rangoEdad: _rangoDesdeEdad(settings.edad),
+          sexo: settings.sexo ?? 'Mujer',
+          estadoCivil: 'Soltero/a',
+          tieneHijos: false,
+        );
+    Navigator.of(context).push(
+      JubiloPageRoute(
+        builder: (_) => SimuladorEstimacionScreen(
+          respuestas: r,
+          modalidad: modalidad.id == 'retiro_programado'
+              ? ModalidadCalculo.retiroProgramado
+              : ModalidadCalculo.rentaVitalicia,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +111,52 @@ class ModalidadDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
 
-            const SizedBox(height: 14),
+            // Cada modalidad con algoritmo propio tiene su calculadora:
+            // Renta Vitalicia Inmediata y Retiro Programado.
+            if (modalidad.id == 'renta_vitalicia_inmediata' ||
+                modalidad.id == 'retiro_programado') ...[
+              PressableScale(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _abrirCalculadora(context, settings),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: color, width: 2),
+                    ),
+                    child: Row(
+                      children: [
+                        IconBadge(
+                            icon: Icons.calculate_outlined,
+                            color: color,
+                            size: 46),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Calcula tu pensión',
+                                  style: AppTextStyles.heading(scale * 0.8,
+                                      color: hc ? Colors.black : null)),
+                              const SizedBox(height: 2),
+                              Text('Con tu saldo ahorrado',
+                                  style: AppTextStyles.small(scale,
+                                      color: hc ? Colors.black54 : null)),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_rounded, color: color),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
+
             Align(
               alignment: Alignment.centerLeft,
               child: BotonEscuchar(
