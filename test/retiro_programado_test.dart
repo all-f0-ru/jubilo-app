@@ -1,9 +1,16 @@
 // Pruebas del Retiro Programado portado a Dart.
 //
 // Los valores esperados salen de ejecutar el motor Python del cliente
-// (cnu.py V4.x con las mismas tablas TM2020) con tasa 3,31 %, año 2026 y
+// (cnu.py V4.0 con las mismas tablas TM2020) con tasa 3,31 %, año 2026 y
 // saldo de 4.000 UF, aplicando la fórmula de retiro_programado.py V5.0:
 //   pensión mensual UF = saldo / (CNU + z/12) / 12
+//
+// NOTA: el CNU del afiliado y del cónyuge se tomó de cnu_afiliado() y
+// cnu_conyuge_sin_hijos() (ecuación 10 de la Nota Técnica N°9), que
+// reproducen el caso oficial de la Superintendencia. La función
+// calcular_cnu_total() de cnu.py V4.0 da 0,275 UF menos en el cónyuge
+// (0,60 x 11/24) y NO reproduce el caso oficial (20,06155 en vez de
+// 20,336550). Está pendiente de confirmar con el cliente.
 //
 // Se ejecutan con:  flutter test test/retiro_programado_test.dart
 //
@@ -79,10 +86,10 @@ void main() {
         ],
       ));
       expect(r.cnuAfiliado, closeTo(16.981689, 2e-6));
-      expect(r.cnuConyuge, closeTo(0.569516, 2e-6));
-      expect(r.cnuTotal, closeTo(17.551204, 2e-6));
-      expect(r.pensionMensualUf, closeTo(18.9920493963, 1e-5));
-      expect(r.pensionMensualClp, closeTo(781563.2857, 1.0));
+      expect(r.cnuConyuge, closeTo(0.844516, 2e-6));
+      expect(r.cnuTotal, closeTo(17.826204, 2e-6));
+      expect(r.pensionMensualUf, closeTo(18.6990642166, 1e-5));
+      expect(r.pensionMensualClp, closeTo(769506.3215, 1.0));
     });
 
     test('hombre de 65, sin beneficiarios', () {
@@ -107,10 +114,10 @@ void main() {
           ),
         ],
       ));
-      expect(r.cnuConyuge, closeTo(2.207611, 2e-6));
-      expect(r.cnuTotal, closeTo(17.175084, 2e-6));
-      expect(r.pensionMensualUf, closeTo(19.4079594215, 1e-5));
-      expect(r.pensionMensualClp, closeTo(798678.8691, 1.0));
+      expect(r.cnuConyuge, closeTo(2.482611, 2e-6));
+      expect(r.cnuTotal, closeTo(17.450084, 2e-6));
+      expect(r.pensionMensualUf, closeTo(19.1021047998, 1e-5));
+      expect(r.pensionMensualClp, closeTo(786092.3000, 1.0));
     });
   });
 
