@@ -30,16 +30,24 @@ class ParametrosVigentes {
   // Tasa del Retiro Programado
   // -------------------------------------------------------------------
 
-  /// 3,31 % anual (en decimal). PROVISORIA: es el valor del ejemplo del
-  /// documento "Modalidad de retiro Programado V5" del cliente, no una tasa
-  /// oficial vigente. Pendiente de confirmar con el cliente (valor y fuente).
-  static const double tasaRetiroProgramado = 0.0331;
+  /// 3,67 % anual (en decimal): Tasa de Interés Técnica de Retiro Programado
+  /// y Rentas Temporales, vigente desde el 1 de octubre de 2026.
+  /// Historial reciente: 3,41 % (oct-2025), 3,31 % (ene-2026), 3,45 %
+  /// (jul-2026), 3,67 % (oct-2026). Cambia por circular, normalmente cada
+  /// trimestre: hay que actualizarla cuando la Superintendencia publique una
+  /// nueva (spensiones.cl > Tasas de interés para retiros programados).
+  static const double tasaRetiroProgramado = 0.0367;
 
-  /// Mientras sea true, la pantalla avisa que la tasa es provisoria.
-  static const bool tasaRetiroProgramadoProvisoria = true;
+  /// Si vuelve a ser true, la pantalla avisa que la tasa es provisoria.
+  static const bool tasaRetiroProgramadoProvisoria = false;
+
+  static final DateTime tasaRetiroProgramadoDesde = DateTime(2026, 10, 1);
 
   static const String tasaRetiroProgramadoFuente =
-      'Valor de ejemplo del documento del cliente (provisorio, por confirmar).';
+      'Superintendencia de Pensiones, Circular N° 2425 (2 de octubre de '
+      '2026): tasa de interés para el cálculo y recálculo de retiros '
+      'programados y rentas temporales, vigente desde el 1 de octubre de '
+      '2026.';
 
   // -------------------------------------------------------------------
   // Valor de la UF
