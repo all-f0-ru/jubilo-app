@@ -1,7 +1,5 @@
-/// Cápsula informativa en video, mostrada en Inicio. Los links reales
-/// todavía no fueron entregados — [videoUrl] queda en null hasta
-/// entonces, y la tarjeta muestra un aviso "disponible pronto" al
-/// tocarla en vez de intentar reproducir algo que no existe.
+/// Cápsula informativa en video, mostrada en Inicio. Si [videoUrl] es null,
+/// la tarjeta muestra un aviso "disponible pronto" al tocarla.
 class CapsulaInformativa {
   final String id;
   final String titulo;
@@ -16,10 +14,34 @@ class CapsulaInformativa {
     required this.duracion,
     this.videoUrl,
   });
+
+  /// Identificador del video de YouTube, sacado del link (acepta los
+  /// formatos watch?v=ID, youtu.be/ID y /shorts/ID).
+  String? get _idYoutube {
+    final url = videoUrl;
+    if (url == null) return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    final v = uri.queryParameters['v'];
+    if (v != null && v.isNotEmpty) return v;
+    final partes = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (partes.isEmpty) return null;
+    if (uri.host.contains('youtu.be')) return partes.first;
+    if (partes.length >= 2 && partes.first == 'shorts') return partes[1];
+    return null;
+  }
+
+  /// Carátula del video (miniatura que publica YouTube). Null si no hay
+  /// video o no se pudo leer su identificador.
+  String? get miniaturaUrl {
+    final id = _idYoutube;
+    if (id == null) return null;
+    return 'https://img.youtube.com/vi/$id/mqdefault.jpg';
+  }
 }
 
-/// Mismo orden/temas que `topicsJubilo` en topic.dart, para que cada
-/// cápsula corresponda 1 a 1 con un tema del flujo Aprender.
+/// Cápsulas con video, en el mismo orden que `topicsJubilo` en topic.dart.
+/// "Preguntas frecuentes" no tiene cápsula porque no hay un video para ella.
 const List<CapsulaInformativa> capsulasInformativas = [
   CapsulaInformativa(
     id: 'que_es_pension',
@@ -27,8 +49,9 @@ const List<CapsulaInformativa> capsulasInformativas = [
     descripcion: 'Una explicación simple de cómo funciona el sistema de '
         'pensiones.',
     duracion: 'Video',
-    // VALIDAR: título en YouTube "¿Sabes cómo funciona el sistema de
-    // pensiones en Chile?". No pude confirmar canal, duración ni contenido.
+    // PAUTA (Chile), julio 2021: "¿Sabes cómo funciona el sistema de
+    // pensiones en Chile?". Verificado que es de Chile. Ojo: es anterior a la
+    // reforma de pensiones de 2025; validar si sigue sirviendo.
     videoUrl: 'https://www.youtube.com/watch?v=jMjP-ANJa2I',
   ),
   CapsulaInformativa(
@@ -44,7 +67,12 @@ const List<CapsulaInformativa> capsulasInformativas = [
     id: 'ahorro_cotizaciones',
     titulo: 'Tu ahorro y las cotizaciones',
     descripcion: 'Cómo se forma el dinero que vas a recibir.',
-    duracion: '3 min',
+    duracion: 'Video',
+    // Sala de Prensa (abril 2026): "Aprende a simular tu pensión: ¿Cuánto
+    // recibirás cuando seas jubilado?". Muestra la herramienta de la
+    // Superintendencia de Pensiones; habla de ahorro obligatorio y voluntario.
+    // No confirmé duración. Validar que calce con la cápsula.
+    videoUrl: 'https://www.youtube.com/watch?v=gHrVnmIfiWY',
   ),
   CapsulaInformativa(
     id: 'edad_legal_requisitos',
@@ -68,14 +96,9 @@ const List<CapsulaInformativa> capsulasInformativas = [
     titulo: 'Documentos y trámites para jubilar',
     descripcion: 'Qué necesitas y en qué orden hacer el trámite.',
     duracion: 'Video',
-    // Javiera Quiroga con Confuturo: proceso paso a paso. Canal no oficial;
-    // validar o reemplazar por uno de ChileAtiende / Superintendencia.
-    videoUrl: 'https://www.youtube.com/watch?v=dtEBz14w7Eo',
-  ),
-  CapsulaInformativa(
-    id: 'preguntas_frecuentes',
-    titulo: 'Preguntas frecuentes',
-    descripcion: 'Dudas comunes sobre el proceso de jubilación.',
-    duracion: '2 min',
+    // AFP Capital (abril 2026): "Certificado de Saldos: Qué es y cómo
+    // descargarlo". Es un canal de una AFP (no oficial del Estado), pero es
+    // chileno y explica el primer documento del trámite. No confirmé duración.
+    videoUrl: 'https://www.youtube.com/watch?v=HaKawNT0ZoM',
   ),
 ];

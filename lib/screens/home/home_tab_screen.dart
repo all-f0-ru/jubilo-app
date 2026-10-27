@@ -263,28 +263,53 @@ class _CapsulaCard extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  Container(
-                    height: 90,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: hc
-                            ? [Colors.black87, Colors.black54]
-                            : [AppColors.tealDeep, AppColors.teal],
+                  // Carátula del video. Si no carga (sin internet o sin
+                  // permiso), se ve el fondo de color de abajo.
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: SizedBox(
+                      height: 90,
+                      width: double.infinity,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: hc
+                                    ? [Colors.black87, Colors.black54]
+                                    : [AppColors.tealDeep, AppColors.teal],
+                              ),
+                            ),
+                          ),
+                          if (capsula.miniaturaUrl != null) ...[
+                            Image.network(
+                              capsula.miniaturaUrl!,
+                              fit: BoxFit.cover,
+                              webHtmlElementStrategy:
+                                  WebHtmlElementStrategy.fallback,
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
+                            ),
+                            Container(color: Colors.black.withValues(alpha: 0.2)),
+                          ],
+                          Center(
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: const BoxDecoration(
+                                  color: Colors.white, shape: BoxShape.circle),
+                              alignment: Alignment.center,
+                              child: Icon(Icons.play_arrow_rounded,
+                                  color: hc ? Colors.black : AppColors.tealDeep,
+                                  size: 22),
+                            ),
+                          ),
+                        ],
                       ),
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(16)),
-                    ),
-                    alignment: Alignment.center,
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                          color: Colors.white, shape: BoxShape.circle),
-                      alignment: Alignment.center,
-                      child: Icon(Icons.play_arrow_rounded,
-                          color: hc ? Colors.black : AppColors.tealDeep, size: 22),
                     ),
                   ),
                   Positioned(
