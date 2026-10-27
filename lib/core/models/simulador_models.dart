@@ -61,8 +61,8 @@ final List<ModalidadInfo> modalidadesPension = [
   ModalidadInfo(
     id: 'retiro_programado',
     nombre: 'Retiro Programado',
-    resumen: 'Mantienes tus fondos en la AFP y retiras un monto anual '
-        'calculado.',
+    resumen: 'Mantienes tus fondos en la AFP y recibes una pensión mensual '
+        'que se recalcula cada año.',
     idealPara: 'Si quieres flexibilidad y mantener el control de tu dinero.',
     icono: Icons.trending_up_rounded,
     color: AppColors.teal,
@@ -74,12 +74,13 @@ final List<ModalidadInfo> modalidadesPension = [
     ],
     ventajas: [
       'Mantienes la propiedad de tus fondos.',
-      'Puedes cambiar a Renta Vitalicia después.',
-      'Si falleces, el saldo va a tus herederos.',
+      'Puedes cambiar a Renta Vitalicia después, si cumples los requisitos.',
+      'Si falleces sin beneficiarios de pensión, el saldo que queda pasa a '
+          'tus herederos.',
     ],
     desventajas: [
-      'El monto baja cada año a medida que se gastan los fondos.',
-      'Depende de la rentabilidad de la AFP.',
+      'El monto puede bajar con los años, a medida que se usan los fondos.',
+      'Depende de la rentabilidad de tus fondos en la AFP.',
       'Tú asumes el riesgo de longevidad.',
     ],
   ),

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_widgets.dart';
 import '../../core/widgets/jubilo_app_bar.dart';
+import '../simulador/comparar_modalidades_screen.dart';
 import 'modalidad_detail_screen.dart';
 
 /// Pestaña "Modalidades": lista siempre accesible de las 4 modalidades
@@ -35,6 +36,35 @@ class ModalidadesListScreen extends StatelessWidget {
               'Al jubilarte eliges cómo recibir tu pensión. Toca cada una '
               'para ver el detalle.',
               style: AppTextStyles.body(scale, color: hc ? Colors.black87 : null),
+            ),
+            const SizedBox(height: 16),
+            JubiloCard(
+              borderColor: hc ? Colors.black : AppColors.teal,
+              borderWidth: 2,
+              onTap: () {
+                Navigator.of(context).push(
+                  JubiloPageRoute(
+                    builder: (_) => CompararModalidadesScreen(
+                      respuestas: respuestasPorDefecto(settings),
+                    ),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  IconBadge(
+                      icon: Icons.compare_arrows_rounded,
+                      color: hc ? Colors.black : AppColors.teal),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text('Compara con tu saldo',
+                        style: AppTextStyles.heading(scale * 0.8,
+                            color: hc ? Colors.black : null)),
+                  ),
+                  Icon(Icons.arrow_forward_rounded,
+                      color: hc ? Colors.black : AppColors.teal),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
             ...modalidadesPension.map((m) {

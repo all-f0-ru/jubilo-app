@@ -181,6 +181,21 @@ class ModalidadDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Plegable(
+              titulo: '¿Cómo funciona?',
+              icono: Icons.lightbulb_outline_rounded,
+              color: color,
+              highContrast: hc,
+              fontScale: scale,
+              child: _ListaConEstilo(
+                icono: Icons.chevron_right_rounded,
+                color: color,
+                items: modalidad.comoFunciona,
+                scale: scale,
+                hc: hc,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Plegable(
               titulo: 'Ventajas',
               icono: Icons.check_circle_outline_rounded,
               color: hc ? Colors.black : AppColors.success,
