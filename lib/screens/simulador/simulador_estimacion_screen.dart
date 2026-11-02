@@ -6,8 +6,14 @@ import '../../core/pension_engine/pension_config.dart';
 import '../../core/pension_engine/renta_vitalicia.dart';
 import '../../core/pension_engine/retiro_programado.dart';
 import '../../core/pension_engine/tm2020_assets.dart';
+import '../../core/providers/premium_provider.dart';
+import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
+import '../../core/providers/simulaciones_provider.dart';
+import '../../core/models/simulacion_guardada.dart';
 import '../../core/models/simulador_models.dart';
+import '../../core/widgets/premium_sheet.dart';
+import 'mis_simulaciones_screen.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/boton_escuchar.dart';
@@ -120,6 +126,15 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
 
   bool get _esRp => widget.modalidad == ModalidadCalculo.retiroProgramado;
 
+  /// true cuando la simulación que se ve ya fue guardada (se apaga si la
+  /// persona cambia algún dato).
+  bool _recienGuardada = false;
+
+  /// true cuando la persona ya presionó "Calcular mi pensión". Hasta
+  /// entonces no se muestra el resultado.
+  bool _calculado = false;
+  final ScrollController _scroll = ScrollController();
+
   bool get _conConyuge => widget.respuestas.estadoCivil == 'Casado/a';
 
   int? get _saldo => int.tryParse(_saldoCtrl.text.replaceAll('.', ''));
@@ -129,8 +144,14 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
     super.initState();
 
     final settings = context.read<SettingsProvider>();
-    _edad = _edadInicial(settings);
+    final recordados = context.read<RespuestasEncuestaProvider>();
+    _edad = recordados.edad != null
+        ? _acotar(recordados.edad!, 50, 100)
+        : _edadInicial(settings);
     _edadConyuge = _acotar(_edad, 18, 100);
+    if (recordados.saldoClp != null) {
+      _saldoCtrl.text = _conPuntos('${recordados.saldoClp}');
+    }
 
     cargarTablasTm2020DesdeAssets().then((tablas) {
       if (!mounted) return;
@@ -149,6 +170,7 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
   @override
   void dispose() {
     _saldoCtrl.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -175,8 +197,143 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
   void _actualizar(VoidCallback cambio) {
     setState(() {
       cambio();
+      _recienGuardada = false;
       _calcular();
     });
+    context
+        .read<RespuestasEncuestaProvider>()
+        .recordarDatos(saldoClp: _saldo, edad: _edad);
+  }
+
+  /// Botón "Calcular mi pensión": muestra el resultado y, si la persona no
+  /// tiene Premium, le ofrece desbloquearlo en una pantalla completa.
+  Future<void> _presionarCalcular() async {
+    HapticFeedback.selectionClick();
+    FocusScope.of(context).unfocus();
+    final premium = context.read<PremiumProvider>();
+    setState(() => _calculado = true);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    if (!premium.esPremium) {
+      final ok = await mostrarPremiumSheet(context);
+      if (!ok || !mounted) return;
+    }
+    // Con Premium: se pregunta si quiere guardar esta simulación.
+    final guardar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Guardar esta simulación?'),
+        content: const Text(
+            'Se guarda con el monto y la hora de hoy. La verás en "Mis simulaciones".'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Ahora no')),
+          ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Guardar')),
+        ],
+      ),
+    );
+    if (guardar == true && mounted) await _guardarActual();
+  }
+
+  void _verMisSimulaciones() {
+    Navigator.of(context).push(
+      JubiloPageRoute(builder: (_) => const MisSimulacionesScreen()),
+    );
+  }
+
+  /// Guarda la simulación actual (función Premium). Si la persona aún no
+  /// tiene Premium, primero se le ofrece desbloquearlo.
+  Future<void> _guardar() async {
+    HapticFeedback.selectionClick();
+    final premium = context.read<PremiumProvider>();
+
+    if (!premium.esPremium) {
+      final desbloqueado = await mostrarPremiumSheet(context);
+      if (!desbloqueado || !mounted) return;
+    }
+
+    await _guardarActual();
+  }
+
+  /// Guarda la simulación que se ve ahora (ya con Premium confirmado).
+  Future<void> _guardarActual() async {
+    final simulaciones = context.read<SimulacionesProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final r = _resultado;
+    final saldo = _saldo;
+    if (r == null || saldo == null) return;
+
+    final ahora = DateTime.now();
+    await simulaciones.guardar(
+      SimulacionGuardada(
+        id: '${ahora.microsecondsSinceEpoch}',
+        fecha: ahora,
+        modalidad: _esRp
+            ? SimulacionGuardada.retiroProgramado
+            : SimulacionGuardada.rentaVitalicia,
+        saldoClp: saldo,
+        edad: _edad,
+        sexo: widget.respuestas.sexo,
+        conConyuge: _conConyuge,
+        pensionMensualClp: r.pensionMensualClp,
+        pensionMensualUf: r.pensionMensualUf,
+        valorUf: r.valorUf,
+        tasa: r.tasaRentaVitalicia,
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _recienGuardada = true);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Simulación guardada')),
+    );
+  }
+
+  Widget _buildGuardar(double scale, bool hc) {
+    final accent = hc ? Colors.black : AppColors.teal;
+    final premium = context.watch<PremiumProvider>().esPremium;
+
+    return JubiloCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bookmark_add_outlined, color: accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('¿Quieres guardar esta simulación?',
+                    style: AppTextStyles.heading(scale * 0.75,
+                        color: hc ? Colors.black : null)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('Se guarda con el monto y la hora de hoy.',
+              style: AppTextStyles.small(scale,
+                  color: hc ? Colors.black54 : null)),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: _recienGuardada
+                ? OutlinedButton.icon(
+                    onPressed: _verMisSimulaciones,
+                    icon: const Icon(Icons.check_circle_outline_rounded),
+                    label: const Text('Guardada · Ver mis simulaciones'),
+                  )
+                : ElevatedButton.icon(
+                    onPressed: _guardar,
+                    icon: Icon(premium
+                        ? Icons.bookmark_add_outlined
+                        : Icons.lock_outline_rounded),
+                    label: Text(
+                        premium ? 'Guardar simulación' : 'Guardar (Premium)'),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Fecha de nacimiento tal que, a la fecha de hoy, la persona tenga
@@ -326,7 +483,7 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
       estado = 'carga';
     } else if (_errorCalculo != null) {
       estado = 'error-calculo';
-    } else if (_resultado == null) {
+    } else if (_resultado == null || !_calculado) {
       estado = 'vacio';
     } else {
       estado = 'resultado';
@@ -342,6 +499,7 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
       ),
       body: SafeArea(
         child: ListView(
+          controller: _scroll,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
           children: [
@@ -449,6 +607,16 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                 onChanged: (v) => _actualizar(() => _edadConyuge = v),
               ),
             ],
+
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _resultado == null ? null : _presionarCalcular,
+                icon: const Icon(Icons.calculate_outlined),
+                label: Text(_calculado ? 'Calcular de nuevo' : 'Calcular mi pensión'),
+              ),
+            ),
 
             if (widget.respuestas.tieneHijos) ...[
               const SizedBox(height: 24),
@@ -621,6 +789,12 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                 style: AppTextStyles.body(scale,
                     color: hc ? Colors.black87 : null),
               ),
+              const SizedBox(height: 10),
+              Text(
+                '${_fmtUf(r.pensionMensualUf)} UF al mes',
+                style: AppTextStyles.heading(scale * 0.9,
+                    color: hc ? Colors.black : AppColors.tealDeep),
+              ),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -644,7 +818,8 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                         'recalcula cada año y puede subir o bajar. Es una '
                         'estimación educativa.'
                     : 'Tu pensión mensual estimada es de '
-                        '${r.pensionMensualClp.round()} pesos. Se reajusta con '
+                        '${r.pensionMensualClp.round()} pesos, que son '
+                        '${_fmtUf(r.pensionMensualUf)} UF. Se reajusta con '
                         'la UF y se paga de por vida. Es una estimación '
                         'educativa, no una oferta de una aseguradora.',
               ),
@@ -660,6 +835,8 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
                 'tu saldo y tu edad, y puede subir o bajar.',
           ),
         ],
+        const SizedBox(height: 14),
+        _buildGuardar(scale, hc),
         const SizedBox(height: 14),
         Plegable(
           titulo: 'Ver cómo se calculó',

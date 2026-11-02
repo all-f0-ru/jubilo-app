@@ -23,6 +23,31 @@ class SimuladorRespuestas {
     required this.estadoCivil,
     required this.tieneHijos,
   });
+
+  Map<String, dynamic> toJson() => {
+        'rangoEdad': rangoEdad,
+        'sexo': sexo,
+        'estadoCivil': estadoCivil,
+        'tieneHijos': tieneHijos,
+      };
+
+  /// Devuelve null si los datos guardados no son válidos.
+  static SimuladorRespuestas? fromJson(Map<String, dynamic> j) {
+    final rango = j['rangoEdad'];
+    final sexo = j['sexo'];
+    final civil = j['estadoCivil'];
+    final hijos = j['tieneHijos'];
+    if (rango is! String || sexo is! String || civil is! String || hijos is! bool) {
+      return null;
+    }
+    if (!rangosEdadSimulador.contains(rango)) return null;
+    return SimuladorRespuestas(
+      rangoEdad: rango,
+      sexo: sexo,
+      estadoCivil: civil,
+      tieneHijos: hijos,
+    );
+  }
 }
 
 const List<String> rangosEdadSimulador = [

@@ -141,6 +141,40 @@ final List<Topic> topicsJubilo = [
     ],
   ),
   Topic(
+    id: 'jubilacion_anticipada',
+    titulo: 'Jubilación anticipada e invalidez',
+    icono: Icons.hourglass_bottom_rounded,
+    resumen: 'Pensionarte antes de la edad legal o por invalidez.',
+    contenido: [
+      'Pensión de Vejez Anticipada: se exige cumplir, de forma '
+          'obligatoria y al mismo tiempo, dos requisitos.',
+      '• Requisito 1: la pensión que calculen tus fondos debe ser igual o '
+          'superior a 12 UF mensuales.',
+      '• Requisito 2: el monto de la pensión debe cubrir, a lo menos, el '
+          '70% del promedio de tus sueldos imponibles de los últimos 10 '
+          'años (los 120 meses anteriores a la solicitud).',
+      'Pensión de Invalidez (total o parcial): antes se necesita un '
+          'dictamen obligatorio de las Comisiones Médicas de la '
+          'Superintendencia de Pensiones.',
+      '• Invalidez parcial: pérdida de capacidad de trabajo igual o '
+          'superior al 50% e inferior a dos tercios (2/3).',
+      '• Invalidez total: pérdida de capacidad de trabajo igual o '
+          'superior a dos tercios (2/3).',
+    ],
+    glosario: const [
+      GlossaryTerm('UF',
+          'La Unidad de Fomento: una medida que se reajusta con la '
+              'inflación y sirve para expresar montos de pensión.'),
+      GlossaryTerm('Invalidez',
+          'Pérdida de capacidad de trabajo reconocida por las Comisiones '
+              'Médicas de la Superintendencia de Pensiones.'),
+    ],
+    segmentosRelevantes: [
+      Segmento.mujerEvaluacion,
+      Segmento.hombreEvaluacion,
+    ],
+  ),
+  Topic(
     id: 'modalidades_pension',
     titulo: 'Las 4 modalidades de pensión',
     icono: Icons.swap_horiz_rounded,
@@ -176,7 +210,7 @@ final List<Topic> topicsJubilo = [
   ),
   Topic(
     id: 'beneficios_adicionales',
-    titulo: 'Beneficios adicionales: PGU, Bono por Hijo y más',
+    titulo: 'Beneficios adicionales: PGU, BAC, Bono por Hijo y más',
     icono: Icons.volunteer_activism_outlined,
     resumen: 'Ayudas del Estado que pueden sumarse a tu pensión.',
     contenido: [
@@ -185,6 +219,13 @@ final List<Topic> topicsJubilo = [
       'La Pensión Garantizada Universal (PGU) es un monto mensual que '
           'reciben las personas mayores que cumplen los requisitos, '
           'independiente de lo que hayan ahorrado.',
+      'El Beneficio por Años Cotizados (BAC) es un aporte estatal mensual '
+          'y automático que se suma a tu pensión.',
+      '• El monto: suma 0,1 UF por cada año cotizado, con un máximo de '
+          '2,5 UF (25 años cotizados).',
+      '• Años mínimos de cotización: al menos 20 años para los hombres y '
+          '10 años para las mujeres.',
+      '• Edad mínima: 65 años, para hombres y mujeres, igual que la PGU.',
       'El Bono por Hijo es un aporte adicional para las mujeres, por '
           'cada hijo/a nacido/a vivo/a o adoptado/a.',
       'Existen otros beneficios (como el Aporte Previsional Solidario en '
@@ -198,6 +239,9 @@ final List<Topic> topicsJubilo = [
               'automáticamente y hay que solicitarlo.',
     },
     glosario: const [
+      GlossaryTerm('BAC',
+          'Beneficio por Años Cotizados: un aporte mensual del Estado que '
+              'suma 0,1 UF por cada año cotizado, hasta un máximo de 2,5 UF.'),
       GlossaryTerm('Bono por Hijo',
           'Un aporte adicional al ahorro previsional de las mujeres, por '
               'cada hijo/a nacido/a vivo/a o adoptado/a.'),

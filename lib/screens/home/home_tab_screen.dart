@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_app_bar.dart';
 import '../aprender/como_empezar_screen.dart';
+import '../simulador/mis_simulaciones_screen.dart';
 
 /// Raíz de la pestaña "Inicio": encabezado con logo, saludo, tarjeta de
 /// etapa (vacía o personalizada), cápsulas informativas en video, y los
@@ -184,6 +185,19 @@ class HomeTabScreen extends StatelessWidget {
               subtitleColor: Colors.white70,
               scale: scale,
               onTap: () => context.read<MainTabProvider>().setTab(3),
+            ),
+            const SizedBox(height: 14),
+            _AccionCard(
+              icon: Icons.bookmark_outline_rounded,
+              title: 'Mis simulaciones',
+              subtitle: 'Tus resultados guardados',
+              color: hc ? Colors.black12 : AppColors.creamDeep,
+              iconColor: hc ? Colors.black : AppColors.tealDeep,
+              textColor: hc ? Colors.black : AppColors.ink,
+              scale: scale,
+              onTap: () => Navigator.of(context).push(
+                JubiloPageRoute(builder: (_) => const MisSimulacionesScreen()),
+              ),
             ),
             const SizedBox(height: 14),
 

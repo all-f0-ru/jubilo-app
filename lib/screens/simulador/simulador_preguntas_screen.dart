@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/jubilo_motion.dart';
+import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -25,6 +26,19 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
   String? _sexo;
   String? _estadoCivil;
   bool? _tieneHijos;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si ya contestó antes, parte con sus respuestas anteriores.
+    final previas = context.read<RespuestasEncuestaProvider>().respuestas;
+    if (previas != null) {
+      _rangoEdad = previas.rangoEdad;
+      _sexo = previas.sexo;
+      _estadoCivil = previas.estadoCivil;
+      _tieneHijos = previas.tieneHijos;
+    }
+  }
 
   static const List<String> _estadosCiviles = [
     'Soltero/a',
@@ -73,6 +87,8 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
       estadoCivil: _estadoCivil!,
       tieneHijos: _tieneHijos!,
     );
+    // Queda registrada para no tener que repetir la encuesta.
+    context.read<RespuestasEncuestaProvider>().guardar(respuestas);
     Navigator.of(context).push(
       JubiloPageRoute(
         builder: (_) => SimuladorResultadosScreen(respuestas: respuestas),

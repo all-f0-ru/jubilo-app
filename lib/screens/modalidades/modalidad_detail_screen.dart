@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/jubilo_motion.dart';
 import '../simulador/simulador_estimacion_screen.dart';
+import '../simulador/calculadora_mixta_screen.dart';
+import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -39,12 +41,27 @@ class ModalidadDetailScreen extends StatelessWidget {
   void _abrirCalculadora(BuildContext context, SettingsProvider settings) {
     HapticFeedback.selectionClick();
     final r = respuestas ??
+        context.read<RespuestasEncuestaProvider>().respuestas ??
         SimuladorRespuestas(
           rangoEdad: _rangoDesdeEdad(settings.edad),
           sexo: settings.sexo ?? 'Mujer',
           estadoCivil: 'Soltero/a',
           tieneHijos: false,
         );
+    final mixta = modalidad.id == 'renta_temporal_vitalicia_diferida'
+        ? ModalidadMixta.temporalVitalicia
+        : modalidad.id == 'renta_vitalicia_con_retiro_programado'
+            ? ModalidadMixta.rvConRp
+            : null;
+    if (mixta != null) {
+      Navigator.of(context).push(
+        JubiloPageRoute(
+          builder: (_) =>
+              CalculadoraMixtaScreen(respuestas: r, modalidad: mixta),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       JubiloPageRoute(
         builder: (_) => SimuladorEstimacionScreen(
@@ -114,7 +131,9 @@ class ModalidadDetailScreen extends StatelessWidget {
             // Cada modalidad con algoritmo propio tiene su calculadora:
             // Renta Vitalicia Inmediata y Retiro Programado.
             if (modalidad.id == 'renta_vitalicia_inmediata' ||
-                modalidad.id == 'retiro_programado') ...[
+                modalidad.id == 'retiro_programado' ||
+                modalidad.id == 'renta_temporal_vitalicia_diferida' ||
+                modalidad.id == 'renta_vitalicia_con_retiro_programado') ...[
               PressableScale(
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),

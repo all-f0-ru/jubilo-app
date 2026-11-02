@@ -85,7 +85,7 @@ const List<CapsulaInformativa> capsulasInformativas = [
   ),
   CapsulaInformativa(
     id: 'beneficios_adicionales',
-    titulo: 'PGU, Bono por Hijo y más',
+    titulo: 'PGU, BAC, Bono por Hijo y más',
     descripcion: 'Ayudas del Estado que pueden sumarse a tu pensión.',
     duracion: 'Video corto',
     // ChileAtiende (oficial), short sobre la PGU.

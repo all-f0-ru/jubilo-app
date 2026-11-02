@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/pension_engine/cnu_engine.dart';
+import '../../core/pension_engine/modalidades_mixtas.dart';
 import '../../core/pension_engine/pension_config.dart';
 import '../../core/pension_engine/renta_vitalicia.dart';
 import '../../core/pension_engine/retiro_programado.dart';
 import '../../core/pension_engine/tm2020_assets.dart';
+import '../../core/providers/premium_provider.dart';
+import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_motion.dart';
@@ -105,6 +109,14 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
   ResultadoRetiroProgramado? _rp;
   String? _errorCalculo;
 
+  // Modalidades combinadas (solo hasta los 65 años) y sus ajustes.
+  ResultadoTemporalVitalicia? _temporal;
+  ResultadoRvRp? _rvRp;
+  int _aniosCotizados = 25;
+  int _pctRv = 50;
+  int _aniosTemporal = 2;
+  int _relacionPct = 150;
+
   bool get _conConyuge => widget.respuestas.estadoCivil == 'Casado/a';
 
   int? get _saldo => int.tryParse(_saldoCtrl.text.replaceAll('.', ''));
@@ -114,8 +126,17 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     super.initState();
 
     final settings = context.read<SettingsProvider>();
-    _edad = _edadInicial(settings);
+    final recordados = context.read<RespuestasEncuestaProvider>();
+    _edad = recordados.edad != null
+        ? _limitar(recordados.edad!, 50, 100)
+        : _edadInicial(settings);
     _edadConyuge = _limitar(_edad, 18, 100);
+    if (recordados.saldoClp != null) {
+      _saldoCtrl.text = _puntos('${recordados.saldoClp}');
+    }
+    if (recordados.aniosCotizados != null) {
+      _aniosCotizados = _limitar(recordados.aniosCotizados!, 0, 45);
+    }
 
     cargarTablasTm2020DesdeAssets().then((tablas) {
       if (!mounted) return;
@@ -159,6 +180,8 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
       cambio();
       _calcular();
     });
+    context.read<RespuestasEncuestaProvider>().recordarDatos(
+        saldoClp: _saldo, edad: _edad, aniosCotizados: _aniosCotizados);
   }
 
   DateTime _nacimientoParaEdad(DateTime hoy, int edad) {
@@ -174,6 +197,8 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
   void _calcular() {
     _rvi = null;
     _rp = null;
+    _temporal = null;
+    _rvRp = null;
     _errorCalculo = null;
 
     final tablas = _tablas;
@@ -225,6 +250,38 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
         valorUf: ParametrosVigentes.valorUf,
         tablas: tablas,
       );
+
+      // Las dos modalidades combinadas usan la mortalidad aproximada del
+      // cliente y solo están pensadas para pensionarse hasta los 65 años.
+      if (_edad <= 65) {
+        final minimo = minimoAniosBac(widget.respuestas.sexo);
+        try {
+          _temporal = simularRentaTemporalVitalicia(
+            saldoClp: saldoClp.toDouble(),
+            edad: _edad,
+            aniosTemporal: _aniosTemporal,
+            relacion: _relacionPct / 100,
+            tasa: ParametrosVigentes.tasaReferenciaVejez,
+            valorUf: ParametrosVigentes.valorUf,
+            aniosCotizados: _aniosCotizados.toDouble(),
+            minimoAnios: minimo,
+          );
+          _rvRp = simularRvInmediataConRp(
+            saldoClp: saldoClp.toDouble(),
+            edad: _edad,
+            pctRv: _pctRv / 100,
+            tasaRv: ParametrosVigentes.tasaReferenciaVejez,
+            tasaRp: ParametrosVigentes.tasaRetiroProgramado,
+            rentabilidad: 0.035,
+            valorUf: ParametrosVigentes.valorUf,
+            aniosCotizados: _aniosCotizados.toDouble(),
+            minimoAnios: minimo,
+          );
+        } on ModalidadesMixtasException {
+          _temporal = null;
+          _rvRp = null;
+        }
+      }
     } on CNUException catch (e) {
       _rvi = null;
       _rp = null;
@@ -276,6 +333,26 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     final scale = settings.fontScale.multiplier;
     final hc = settings.highContrast;
     final reducir = reduceMotion(context);
+
+    // La comparativa completa es Premium: sin pago no se muestra nada más.
+    if (!context.watch<PremiumProvider>().esPremium) {
+      return Scaffold(
+        backgroundColor: hc ? Colors.white : AppColors.cream,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text('Comparar modalidades',
+              style:
+                  AppTextStyles.heading(0.8, color: hc ? Colors.black : null)),
+        ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+            children: [_BloqueoPremium(scale: scale, hc: hc)],
+          ),
+        ),
+      );
+    }
 
     final String estado;
     if (_errorCarga != null) {
@@ -392,6 +469,69 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               ),
             ],
 
+            if (_edad <= 65) ...[
+              const SizedBox(height: 28),
+              Plegable(
+                titulo: 'Ajustes de las modalidades combinadas',
+                icono: Icons.tune_rounded,
+                color: hc ? Colors.black : AppColors.teal,
+                highContrast: hc,
+                fontScale: scale,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Años cotizados (para el BAC)',
+                        style: AppTextStyles.body(scale,
+                            color: hc ? Colors.black : null)),
+                    const SizedBox(height: 8),
+                    StepperNumero(
+                      valor: _aniosCotizados,
+                      minimo: 0,
+                      maximo: 45,
+                      sufijo: 'años',
+                      highContrast: hc,
+                      fontScale: scale,
+                      onChanged: (v) => _actualizar(() => _aniosCotizados = v),
+                    ),
+                    const SizedBox(height: 18),
+                    Text('Parte a Renta Vitalicia (con Retiro Programado)',
+                        style: AppTextStyles.body(scale,
+                            color: hc ? Colors.black : null)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 10, runSpacing: 10, children: [
+                      for (final p in const [30, 50, 70])
+                        _chipOpcion('$p%', _pctRv == p,
+                            () => _actualizar(() => _pctRv = p), scale, hc),
+                    ]),
+                    const SizedBox(height: 18),
+                    Text('Años de Renta Temporal',
+                        style: AppTextStyles.body(scale,
+                            color: hc ? Colors.black : null)),
+                    const SizedBox(height: 8),
+                    StepperNumero(
+                      valor: _aniosTemporal,
+                      minimo: 1,
+                      maximo: 5,
+                      sufijo: _aniosTemporal == 1 ? 'año' : 'años',
+                      highContrast: hc,
+                      fontScale: scale,
+                      onChanged: (v) => _actualizar(() => _aniosTemporal = v),
+                    ),
+                    const SizedBox(height: 18),
+                    Text('Renta temporal comparada con la vitalicia',
+                        style: AppTextStyles.body(scale,
+                            color: hc ? Colors.black : null)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 10, runSpacing: 10, children: [
+                      for (final p in const [100, 150, 200])
+                        _chipOpcion('$p%', _relacionPct == p,
+                            () => _actualizar(() => _relacionPct = p), scale, hc),
+                    ]),
+                  ],
+                ),
+              ),
+            ],
+
             if (widget.respuestas.tieneHijos) ...[
               const SizedBox(height: 24),
               InfoBanner(
@@ -412,6 +552,29 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _chipOpcion(
+      String label, bool sel, VoidCallback onTap, double scale, bool hc) {
+    final accent = hc ? Colors.black : AppColors.teal;
+    return ChoiceChip(
+      label: Text(label),
+      selected: sel,
+      showCheckmark: false,
+      selectedColor: accent,
+      backgroundColor: Colors.white,
+      side: BorderSide(color: accent, width: 1.5),
+      labelStyle: TextStyle(
+        fontSize: 16 * scale,
+        fontWeight: FontWeight.w700,
+        color: sel ? Colors.white : accent,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      onSelected: (_) {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
     );
   }
 
@@ -526,6 +689,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           icono: infoRvi.icono,
           color: hc ? Colors.black : infoRvi.color,
           monto: rvi.pensionMensualClp,
+          montoUf: rvi.pensionMensualUf,
           bajada: 'al mes, de por vida',
           chips: const ['Monto fijo en UF', 'No cambia'],
           aviso: rvi.cumpleUmbralMinimo
@@ -542,6 +706,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           icono: infoRp.icono,
           color: hc ? Colors.black : infoRp.color,
           monto: rp.pensionMensualClp,
+          montoUf: rp.pensionMensualUf,
           bajada: 'al mes, el primer año',
           chips: const ['Se recalcula cada año', 'Puede subir o bajar'],
           aviso: ParametrosVigentes.tasaRetiroProgramadoProvisoria
@@ -552,6 +717,60 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           hc: hc,
           onTap: () => _abrirDetalle('retiro_programado'),
         ),
+        if (_temporal != null && _rvRp != null) ...[
+          const SizedBox(height: 12),
+          _TarjetaModalidad(
+            nombre: 'Renta Temporal + Vitalicia Diferida',
+            icono: _info('renta_temporal_vitalicia_diferida').icono,
+            color: hc
+                ? Colors.black
+                : _info('renta_temporal_vitalicia_diferida').color,
+            monto: _temporal!.temporalClp,
+            montoUf: _temporal!.temporalUf,
+            bajada: 'al mes, durante ${_temporal!.aniosTemporal} '
+                '${_temporal!.aniosTemporal == 1 ? 'año' : 'años'}',
+            chips: [
+              'Después: ${_clp(_temporal!.vitalicioClp)} al mes',
+              'Vitalicia fija en UF',
+            ],
+            aviso: 'Luego, desde los ${_temporal!.edadInicioVitalicia} años, '
+                'de por vida. No incluye cónyuge ni hijos.',
+            muted: false,
+            scale: scale,
+            hc: hc,
+            onTap: () => _abrirDetalle('renta_temporal_vitalicia_diferida'),
+          ),
+          const SizedBox(height: 12),
+          _TarjetaModalidad(
+            nombre: 'Renta Vitalicia + Retiro Programado',
+            icono: _info('renta_vitalicia_con_retiro_programado').icono,
+            color: hc
+                ? Colors.black
+                : _info('renta_vitalicia_con_retiro_programado').color,
+            monto: _rvRp!.filas.first.rvClp + _rvRp!.filas.first.rpClp,
+            montoUf: _rvRp!.filas.first.rvUf + _rvRp!.filas.first.rpUf,
+            bajada: 'al mes, al pensionarte',
+            chips: [
+              '$_pctRv% renta vitalicia',
+              '${100 - _pctRv}% retiro programado',
+            ],
+            aviso: 'La parte de retiro programado se recalcula cada año. '
+                'No incluye cónyuge ni hijos.',
+            muted: false,
+            scale: scale,
+            hc: hc,
+            onTap: () => _abrirDetalle('renta_vitalicia_con_retiro_programado'),
+          ),
+        ] else if (_edad > 65) ...[
+          const SizedBox(height: 12),
+          InfoBanner(
+            variant: BannerVariant.info,
+            fontScale: scale,
+            text: 'Las modalidades combinadas (Renta Temporal + Vitalicia '
+                'Diferida y Renta Vitalicia + Retiro Programado) se '
+                'comparan hasta los 65 años.',
+          ),
+        ],
         const SizedBox(height: 12),
         InfoBanner(
           variant: BannerVariant.info,
@@ -564,11 +783,53 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
   }
 }
 
+/// Se muestra en lugar de la comparativa cuando la persona no tiene Premium.
+class _BloqueoPremium extends StatelessWidget {
+  final double scale;
+  final bool hc;
+
+  const _BloqueoPremium({required this.scale, required this.hc});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = hc ? Colors.black : AppColors.teal;
+    return JubiloCard(
+      borderColor: accent,
+      borderWidth: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(icon: Icons.lock_outline_rounded, color: accent, size: 48),
+          const SizedBox(height: 14),
+          Text('Comparar modalidades es Premium',
+              style: AppTextStyles.heading(scale * 0.85,
+                  color: hc ? Colors.black : null)),
+          const SizedBox(height: 8),
+          Text(
+            'Mira lado a lado cuánto recibirías con cada modalidad de '
+            'pensión, con tu mismo saldo.',
+            style: AppTextStyles.body(scale, color: hc ? Colors.black87 : null),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => mostrarPremiumSheet(context),
+              child: const Text('Ver Premium'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TarjetaModalidad extends StatelessWidget {
   final String nombre;
   final IconData icono;
   final Color color;
   final double monto;
+  final double montoUf;
   final String bajada;
   final List<String> chips;
   final String? aviso;
@@ -582,6 +843,7 @@ class _TarjetaModalidad extends StatelessWidget {
     required this.icono,
     required this.color,
     required this.monto,
+    required this.montoUf,
     required this.bajada,
     required this.chips,
     required this.aviso,
@@ -611,7 +873,8 @@ class _TarjetaModalidad extends StatelessWidget {
               Expanded(
                 child: Text(nombre,
                     style: AppTextStyles.heading(scale * 0.8,
-                        color: hc ? Colors.black : null)),
+                            color: hc ? Colors.black : null)
+                        .copyWith(fontWeight: FontWeight.w800)),
               ),
               Icon(Icons.chevron_right_rounded,
                   color: hc ? Colors.black : AppColors.inkSoft),
@@ -627,6 +890,10 @@ class _TarjetaModalidad extends StatelessWidget {
           Text(bajada,
               style: AppTextStyles.body(scale,
                   color: hc ? Colors.black87 : null)),
+          const SizedBox(height: 6),
+          Text('${montoUf.toStringAsFixed(2).replaceAll('.', ',')} UF al mes',
+              style: AppTextStyles.heading(scale * 0.8,
+                  color: hc ? Colors.black : AppColors.tealDeep)),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,

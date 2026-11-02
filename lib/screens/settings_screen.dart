@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/providers/premium_provider.dart';
 import '../core/providers/settings_provider.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
@@ -83,6 +84,29 @@ class SettingsScreen extends StatelessWidget {
                       color: highContrast ? Colors.black : null)),
               subtitle: Text(
                 'Activa el botón "Escuchar" en los contenidos.',
+                style: AppTextStyles.small(scale,
+                    color: highContrast ? Colors.black54 : null),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+            const Divider(height: 32),
+
+            // Solo para probar el flujo mientras los pagos son de demostración.
+            SwitchListTile(
+              value: context.watch<PremiumProvider>().esPremium,
+              onChanged: (v) {
+                final premium = context.read<PremiumProvider>();
+                if (v) {
+                  premium.activarDemo();
+                } else {
+                  premium.desactivar();
+                }
+              },
+              title: Text('Premium (demostración)',
+                  style: AppTextStyles.body(scale,
+                      color: highContrast ? Colors.black : null)),
+              subtitle: Text(
+                'Activa o desactiva Premium para probar la app. No cobra nada.',
                 style: AppTextStyles.small(scale,
                     color: highContrast ? Colors.black54 : null),
               ),

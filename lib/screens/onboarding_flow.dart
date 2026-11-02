@@ -74,9 +74,10 @@ class WelcomeScreen extends StatelessWidget {
         'acercando a la edad de jubilarse en Chile.\n\n'
         'Aquí encontrarás información clara y sencilla, sin palabras '
         'complicadas.',
-    'Puedes aprender sobre tu situación previsional paso a paso, o '
-        'simular cómo funcionarían las distintas modalidades de pensión '
-        'para tu caso.\n\n'
+    'Aquí puedes:\n\n'
+        '• Aprender sobre tu situación previsional, paso a paso.\n'
+        '• Simular tu pensión, de acuerdo a las modalidades de pensión '
+        'según tu caso.\n\n'
         'Todo pensado para leerse con calma, a tu ritmo.',
   ];
 
