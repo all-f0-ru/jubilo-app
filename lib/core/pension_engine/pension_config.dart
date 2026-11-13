@@ -15,7 +15,8 @@ class ParametrosVigentes {
   // -------------------------------------------------------------------
 
   /// 2,81 % anual (en decimal).
-  static const double tasaReferenciaVejez = 0.0281;
+  static double _tasaVejez = 0.0281;
+  static double get tasaReferenciaVejez => _tasaVejez;
 
   static const String tasaFuente =
       'Comisión para el Mercado Financiero, publicada por la '
@@ -36,7 +37,8 @@ class ParametrosVigentes {
   /// (jul-2026), 3,67 % (oct-2026). Cambia por circular, normalmente cada
   /// trimestre: hay que actualizarla cuando la Superintendencia publique una
   /// nueva (spensiones.cl > Tasas de interés para retiros programados).
-  static const double tasaRetiroProgramado = 0.0367;
+  static double _tasaRp = 0.0367;
+  static double get tasaRetiroProgramado => _tasaRp;
 
   /// Si vuelve a ser true, la pantalla avisa que la tasa es provisoria.
   static const bool tasaRetiroProgramadoProvisoria = false;
@@ -54,9 +56,11 @@ class ParametrosVigentes {
   // -------------------------------------------------------------------
 
   /// Valor de la UF al 13-10-2026 (fuente: SII).
-  static const double valorUf = 41152.13;
+  static double _uf = 41152.13;
+  static double get valorUf => _uf;
 
-  static final DateTime valorUfFecha = DateTime(2026, 10, 13);
+  static DateTime _ufFecha = DateTime(2026, 10, 13);
+  static DateTime get valorUfFecha => _ufFecha;
 
   static const String valorUfFuente =
       'Servicio de Impuestos Internos (sii.cl), valores diarios de la UF.';
@@ -68,4 +72,46 @@ class ParametrosVigentes {
         fechaCalculo: tasaFechaConsulta,
         fuente: tasaFuente,
       );
+
+  // -------------------------------------------------------------------
+  // Rentabilidad real esperada del fondo (retiro programado)
+  // -------------------------------------------------------------------
+
+  static double _rentabilidad = 0.035;
+  static double get rentabilidadReal => _rentabilidad;
+
+  // -------------------------------------------------------------------
+  // Actualización desde internet (ver ParametrosService)
+  // -------------------------------------------------------------------
+
+  /// De dónde viene hoy el valor de la UF: 'codigo', 'guardado',
+  /// 'firebase' o 'automatico'.
+  static String origenUf = 'codigo';
+
+  /// Si las tasas vinieron de Firebase (o de la última copia guardada).
+  static bool tasasActualizadas = false;
+
+  /// Aplica valores nuevos. Ignora los que vengan vacíos o fuera de rango,
+  /// así un dato mal escrito en Firebase no rompe los cálculos.
+  static void aplicar({
+    double? tasaVejez,
+    double? tasaRp,
+    double? rentabilidad,
+    double? uf,
+    DateTime? ufFecha,
+    String? origenDeUf,
+  }) {
+    if (tasaVejez != null && tasaVejez > 0 && tasaVejez < 0.15) {
+      _tasaVejez = tasaVejez;
+    }
+    if (tasaRp != null && tasaRp > 0 && tasaRp < 0.15) _tasaRp = tasaRp;
+    if (rentabilidad != null && rentabilidad > 0 && rentabilidad < 0.15) {
+      _rentabilidad = rentabilidad;
+    }
+    if (uf != null && uf > 10000 && uf < 200000) {
+      _uf = uf;
+      if (ufFecha != null) _ufFecha = ufFecha;
+      if (origenDeUf != null) origenUf = origenDeUf;
+    }
+  }
 }

@@ -71,7 +71,7 @@ void main() {
       tasaReferencia: ParametrosVigentes.tasaReferencia,
     );
     const prima = 4000.0;
-    const uf = ParametrosVigentes.valorUf;
+    final uf = ParametrosVigentes.valorUf;
 
     ResultadoRentaVitalicia calcular(GrupoFamiliarRvi g) =>
         calcularRentaVitalicia(

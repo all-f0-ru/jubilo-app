@@ -43,7 +43,7 @@ void main() {
 
   final fecha = DateTime(2026, 10, 13);
   const saldoUf = 4000.0;
-  const uf = ParametrosVigentes.valorUf;
+  final  uf = ParametrosVigentes.valorUf;
 
   ParametrosRp parametros({int z = 0}) => ParametrosRp(
         fechaReferencia: fecha,
