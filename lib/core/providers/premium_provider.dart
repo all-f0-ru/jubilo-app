@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/correo_bienvenida_service.dart';
+import '../services/nube_service.dart';
 
 /// Estado Premium de la persona (pago único que desbloquea: guardar
 /// simulaciones, comparar modalidades y ver la gráfica de tendencia).
@@ -23,6 +25,7 @@ class PremiumProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _esPremium = prefs.getBool(_clave) ?? false;
+      NubeService.fijarGuardado(_esPremium);
       notifyListeners();
     } catch (_) {
       // Sin almacenamiento disponible: se queda en no premium.
@@ -39,6 +42,16 @@ class PremiumProvider extends ChangeNotifier {
   /// Simula el pago único. No cobra nada.
   Future<void> activarDemo() async {
     _esPremium = true;
+    NubeService.fijarGuardado(true);
+    notifyListeners();
+    await _guardar();
+  }
+
+  /// Se llama cuando Google Play confirma una compra (o la restaura).
+  Future<void> activarPorCompra() async {
+    if (_esPremium) return;
+    _esPremium = true;
+    NubeService.fijarGuardado(true);
     notifyListeners();
     await _guardar();
   }
@@ -46,6 +59,8 @@ class PremiumProvider extends ChangeNotifier {
   /// Vuelve a la versión gratuita (sirve para probar el flujo de nuevo).
   Future<void> desactivar() async {
     _esPremium = false;
+    NubeService.fijarGuardado(false);
+    CorreoBienvenidaService.reiniciar();
     notifyListeners();
     await _guardar();
   }

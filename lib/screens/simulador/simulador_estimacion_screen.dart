@@ -149,6 +149,10 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
         ? _acotar(recordados.edad!, 50, 100)
         : _edadInicial(settings);
     _edadConyuge = _acotar(_edad, 18, 100);
+    final sexoC = recordados.extraTexto('conyugeSexo');
+    if (sexoC == 'F' || sexoC == 'M') _conyugeSexo = sexoC;
+    final edadC = recordados.extraInt('conyugeEdad');
+    if (edadC != null) _edadConyuge = _acotar(edadC, 18, 100);
     if (recordados.saldoClp != null) {
       _saldoCtrl.text = _conPuntos('${recordados.saldoClp}');
     }
@@ -203,6 +207,10 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
     context
         .read<RespuestasEncuestaProvider>()
         .recordarDatos(saldoClp: _saldo, edad: _edad);
+    context.read<RespuestasEncuestaProvider>().recordarExtras({
+      'conyugeSexo': ?_conyugeSexo,
+      'conyugeEdad': _edadConyuge,
+    });
   }
 
   /// Botón "Calcular mi pensión": muestra el resultado y, si la persona no
