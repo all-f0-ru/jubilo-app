@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/models/comparativa_guardada.dart';
 import '../../core/models/simulacion_guardada.dart';
 import '../../core/models/simulador_models.dart';
+import '../../core/providers/comparativas_provider.dart';
 import '../../core/providers/premium_provider.dart';
 import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
@@ -63,6 +65,7 @@ class MisSimulacionesScreen extends StatelessWidget {
     final premium = context.watch<PremiumProvider>().esPremium;
     final simulaciones = context.watch<SimulacionesProvider>();
     final lista = simulaciones.todas;
+    final comparativas = context.watch<ComparativasProvider>().todas;
 
     return Scaffold(
       backgroundColor: hc ? Colors.white : AppColors.cream,
@@ -94,9 +97,22 @@ class MisSimulacionesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
             ],
-            if (premium && lista.isEmpty)
-              _Vacio(scale: scale, hc: hc)
-            else if (premium) ...[
+            if (premium && lista.isEmpty && comparativas.isEmpty)
+              _Vacio(scale: scale, hc: hc),
+            if (premium && comparativas.isNotEmpty) ...[
+              Text('Comparativas guardadas (${comparativas.length})',
+                  style: AppTextStyles.heading(scale * 0.8,
+                      color: hc ? Colors.black : null)),
+              const SizedBox(height: 12),
+              for (final c in comparativas.reversed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _TarjetaComparativa(
+                      comparativa: c, scale: scale, hc: hc),
+                ),
+              const SizedBox(height: 12),
+            ],
+            if (premium && lista.isNotEmpty) ...[
               _TarjetaGrafica(simulaciones: lista, scale: scale, hc: hc),
               const SizedBox(height: 24),
               Text('Guardadas (${lista.length})',
@@ -508,4 +524,141 @@ class _TendenciaPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _TendenciaPainter old) => true;
+}
+
+/// Una comparativa guardada: los datos usados y lo que dio cada modalidad.
+class _TarjetaComparativa extends StatelessWidget {
+  final ComparativaGuardada comparativa;
+  final double scale;
+  final bool hc;
+
+  const _TarjetaComparativa({
+    required this.comparativa,
+    required this.scale,
+    required this.hc,
+  });
+
+  Future<void> _confirmarBorrado(BuildContext context) async {
+    final provider = context.read<ComparativasProvider>();
+    final borrar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('¿Borrar esta comparativa?'),
+        content: const Text('No se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (borrar == true) await provider.eliminar(comparativa.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = comparativa;
+    final mayor = c.mayor;
+    final maximo = c.filas.fold<double>(
+        0, (m, f) => f.montoClp > m ? f.montoClp : m);
+    final accent = hc ? Colors.black : AppColors.teal;
+
+    return JubiloCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(icon: Icons.compare_arrows_rounded, color: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Saldo ${_clp(c.saldoClp)}',
+                        style: AppTextStyles.body(scale,
+                                color: hc ? Colors.black : null)
+                            .copyWith(fontWeight: FontWeight.w800)),
+                    Text(
+                      '${_fechaHora(c.fecha)} · ${c.edad} años · '
+                      '${c.aniosCotizados} años cotizados',
+                      style: AppTextStyles.small(scale,
+                          color: hc ? Colors.black54 : null),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Borrar',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _confirmarBorrado(context),
+                icon: Icon(Icons.delete_outline_rounded,
+                    color: hc ? Colors.black : AppColors.inkSoft),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final f in c.filas) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(f.nombre,
+                      style: AppTextStyles.small(scale,
+                              color: hc ? Colors.black : null)
+                          .copyWith(fontWeight: FontWeight.w700)),
+                ),
+                Text(_clp(f.montoClp),
+                    style: AppTextStyles.small(scale,
+                            color: hc ? Colors.black : null)
+                        .copyWith(fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: maximo <= 0 ? 0 : (f.montoClp / maximo).clamp(0.0, 1.0),
+                minHeight: 9,
+                color: _colorModalidad(f.modalidad, hc),
+                backgroundColor: AppColors.creamDeep,
+              ),
+            ),
+            if (f.pguClp > 0 || f.bacClp > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text(
+                  'Con PGU y BAC desde los 65: ${_clp(f.totalClp)}',
+                  style: AppTextStyles.small(scale * 0.9,
+                      color: hc ? Colors.black54 : null),
+                ),
+              ),
+            const SizedBox(height: 10),
+          ],
+          if (mayor != null && c.filas.length > 1)
+            Text('Mayor monto al mes: ${mayor.nombre}.',
+                style: AppTextStyles.small(scale,
+                        color: hc ? Colors.black : AppColors.tealDeep)
+                    .copyWith(fontWeight: FontWeight.w800)),
+          if (c.cantidadHijos > 0 || c.conConyuge)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                [
+                  if (c.conConyuge) 'Con cónyuge',
+                  if (c.cantidadHijos > 0)
+                    '${c.cantidadHijos} ${c.cantidadHijos == 1 ? 'hijo/a' : 'hijos/as'}',
+                ].join(' · '),
+                style: AppTextStyles.small(scale,
+                    color: hc ? Colors.black54 : null),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

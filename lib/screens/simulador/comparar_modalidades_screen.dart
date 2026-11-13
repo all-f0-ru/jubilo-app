@@ -11,6 +11,10 @@ import '../../core/providers/premium_provider.dart';
 import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
+import '../../core/models/comparativa_guardada.dart';
+import '../../core/models/simulacion_guardada.dart';
+import '../../core/providers/comparativas_provider.dart';
+import '../../core/widgets/hijos_selector.dart';
 import '../../core/widgets/premium_sheet.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -116,6 +120,12 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
   int _pctRv = 50;
   int _aniosTemporal = 2;
   int _relacionPct = 150;
+  List<int> _hijos = [];
+
+  // Aportes del Estado (PGU y BAC) de las dos modalidades oficiales.
+  double _pguRvi = 0, _bacRvi = 0, _pguRp = 0, _bacRp = 0;
+
+  bool get _conHijos => widget.respuestas.tieneHijos;
 
   bool get _conConyuge => widget.respuestas.estadoCivil == 'Casado/a';
 
@@ -136,6 +146,21 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     }
     if (recordados.aniosCotizados != null) {
       _aniosCotizados = _limitar(recordados.aniosCotizados!, 0, 45);
+    }
+    _pctRv = recordados.extraInt('pctRv') ?? _pctRv;
+    _aniosTemporal =
+        _limitar(recordados.extraInt('aniosTemporal') ?? _aniosTemporal, 1, 5);
+    _relacionPct = recordados.extraInt('relacionPct') ?? _relacionPct;
+    final sexoC = recordados.extraTexto('conyugeSexo');
+    if (sexoC == 'F' || sexoC == 'M') _conyugeSexo = sexoC;
+    final edadC = recordados.extraInt('conyugeEdad');
+    if (edadC != null) _edadConyuge = _limitar(edadC, 18, 100);
+    if (_conHijos) {
+      _hijos = recordados
+          .extraListaInt('hijosEdades')
+          .where((h) => h >= 0 && h <= edadMaximaHijo)
+          .take(maximoHijos)
+          .toList();
     }
 
     cargarTablasTm2020DesdeAssets().then((tablas) {
@@ -182,6 +207,14 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     });
     context.read<RespuestasEncuestaProvider>().recordarDatos(
         saldoClp: _saldo, edad: _edad, aniosCotizados: _aniosCotizados);
+    context.read<RespuestasEncuestaProvider>().recordarExtras({
+      'pctRv': _pctRv,
+      'aniosTemporal': _aniosTemporal,
+      'relacionPct': _relacionPct,
+      'hijosEdades': _hijos,
+      'conyugeSexo': ?_conyugeSexo,
+      'conyugeEdad': _edadConyuge,
+    });
   }
 
   DateTime _nacimientoParaEdad(DateTime hoy, int edad) {
@@ -200,6 +233,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     _temporal = null;
     _rvRp = null;
     _errorCalculo = null;
+    _pguRvi = _bacRvi = _pguRp = _bacRp = 0;
 
     final tablas = _tablas;
     final saldoClp = _saldo;
@@ -239,6 +273,12 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
         valorUf: ParametrosVigentes.valorUf,
         tablas: tablas,
       );
+      final pguParams = parametrosPguBacActual;
+      final bacUf = calcularBacUf(_aniosCotizados.toDouble(),
+          minimoAniosBac(widget.respuestas.sexo), pguParams);
+      _bacRvi = bacUf * ParametrosVigentes.valorUf;
+      _bacRp = _bacRvi;
+      _pguRvi = calcularPgu(_rvi!.pensionMensualClp, pguParams);
       _rp = calcularRetiroProgramado(
         saldoUf: saldoUf,
         grupoFamiliar: grupo,
@@ -250,6 +290,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
         valorUf: ParametrosVigentes.valorUf,
         tablas: tablas,
       );
+      _pguRp = calcularPgu(_rp!.pensionMensualClp, pguParams);
 
       // Las dos modalidades combinadas usan la mortalidad aproximada del
       // cliente y solo están pensadas para pensionarse hasta los 65 años.
@@ -265,6 +306,8 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
             valorUf: ParametrosVigentes.valorUf,
             aniosCotizados: _aniosCotizados.toDouble(),
             minimoAnios: minimo,
+            hijosEdades: _conHijos ? _hijos : const [],
+            pgu: pguParams,
           );
           _rvRp = simularRvInmediataConRp(
             saldoClp: saldoClp.toDouble(),
@@ -272,10 +315,12 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
             pctRv: _pctRv / 100,
             tasaRv: ParametrosVigentes.tasaReferenciaVejez,
             tasaRp: ParametrosVigentes.tasaRetiroProgramado,
-            rentabilidad: 0.035,
+            rentabilidad: ParametrosVigentes.rentabilidadReal,
             valorUf: ParametrosVigentes.valorUf,
             aniosCotizados: _aniosCotizados.toDouble(),
             minimoAnios: minimo,
+            hijosEdades: _conHijos ? _hijos : const [],
+            pgu: pguParams,
           );
         } on ModalidadesMixtasException {
           _temporal = null;
@@ -469,6 +514,37 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               ),
             ],
 
+            const SizedBox(height: 28),
+            _titulo('Años cotizados', scale, hc),
+            StepperNumero(
+              valor: _aniosCotizados,
+              minimo: 0,
+              maximo: 45,
+              sufijo: 'años',
+              highContrast: hc,
+              fontScale: scale,
+              onChanged: (v) => _actualizar(() => _aniosCotizados = v),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Con ${minimoAniosBac(widget.respuestas.sexo)} años o más '
+              'cotizados se suma el Bono por Años Cotizados (BAC) desde los '
+              '65 años, y la PGU según tu pensión.',
+              style: AppTextStyles.small(scale,
+                  color: hc ? Colors.black54 : null),
+            ),
+
+            if (_conHijos) ...[
+              const SizedBox(height: 28),
+              _titulo('Tus hijos/as', scale, hc),
+              HijosSelector(
+                edades: _hijos,
+                scale: scale,
+                altoContraste: hc,
+                onChanged: (v) => _actualizar(() => _hijos = v),
+              ),
+            ],
+
             if (_edad <= 65) ...[
               const SizedBox(height: 28),
               Plegable(
@@ -480,20 +556,6 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Años cotizados (para el BAC)',
-                        style: AppTextStyles.body(scale,
-                            color: hc ? Colors.black : null)),
-                    const SizedBox(height: 8),
-                    StepperNumero(
-                      valor: _aniosCotizados,
-                      minimo: 0,
-                      maximo: 45,
-                      sufijo: 'años',
-                      highContrast: hc,
-                      fontScale: scale,
-                      onChanged: (v) => _actualizar(() => _aniosCotizados = v),
-                    ),
-                    const SizedBox(height: 18),
                     Text('Parte a Renta Vitalicia (con Retiro Programado)',
                         style: AppTextStyles.body(scale,
                             color: hc ? Colors.black : null)),
@@ -532,12 +594,14 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               ),
             ],
 
-            if (widget.respuestas.tieneHijos) ...[
+            if (_conHijos) ...[
               const SizedBox(height: 24),
               InfoBanner(
                 variant: BannerVariant.info,
                 fontScale: scale,
-                text: 'Tus hijos/as aún no se incluyen en este cálculo.',
+                text: 'Tus hijos/as se consideran en las dos modalidades '
+                    'combinadas (aproximación referencial). En Renta '
+                    'Vitalicia y Retiro Programado todavía no.',
               ),
             ],
 
@@ -659,6 +723,77 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     }
   }
 
+  /// Fila de la modalidad Vitalicia + Retiro Programado a los 65 años.
+  FilaRvRp? _filaA65() {
+    final r = _rvRp;
+    if (r == null) return null;
+    for (final f in r.filas) {
+      if (f.edad == 65) return f;
+    }
+    return null;
+  }
+
+  double _pguRvRp() => _filaA65()?.pguClp ?? 0;
+  double _bacRvRp() => _filaA65()?.bacClp ?? 0;
+  /// Guarda lo que hoy se ve en pantalla (Premium) para verlo después en
+  /// "Mis simulaciones".
+  Future<void> _guardarComparativa() async {
+    final rvi = _rvi;
+    final rp = _rp;
+    final saldo = _saldo;
+    if (rvi == null || rp == null || saldo == null) return;
+    final comparativas = context.read<ComparativasProvider>();
+    final mensajes = ScaffoldMessenger.of(context);
+    final ahora = DateTime.now();
+    final f = _filaA65();
+    final c = ComparativaGuardada(
+      id: ahora.microsecondsSinceEpoch.toString(),
+      fecha: ahora,
+      saldoClp: saldo,
+      edad: _edad,
+      sexo: widget.respuestas.sexo,
+      aniosCotizados: _aniosCotizados,
+      conConyuge: _conConyuge,
+      cantidadHijos: _conHijos ? _hijos.length : 0,
+      valorUf: ParametrosVigentes.valorUf,
+      filas: [
+        FilaComparativa(
+          modalidad: SimulacionGuardada.rentaVitalicia,
+          montoClp: rvi.pensionMensualClp,
+          montoUf: rvi.pensionMensualUf,
+          pguClp: _pguRvi,
+          bacClp: _bacRvi,
+        ),
+        FilaComparativa(
+          modalidad: SimulacionGuardada.retiroProgramado,
+          montoClp: rp.pensionMensualClp,
+          montoUf: rp.pensionMensualUf,
+          pguClp: _pguRp,
+          bacClp: _bacRp,
+        ),
+        if (_temporal != null && _rvRp != null) ...[
+          FilaComparativa(
+            modalidad: SimulacionGuardada.temporalVitalicia,
+            montoClp: _temporal!.temporalClp,
+            montoUf: _temporal!.temporalUf,
+            pguClp: _temporal!.pguClp,
+            bacClp: _temporal!.bacClp,
+          ),
+          FilaComparativa(
+            modalidad: SimulacionGuardada.rvConRp,
+            montoClp: _rvRp!.filas.first.rvClp + _rvRp!.filas.first.rpClp,
+            montoUf: _rvRp!.filas.first.rvUf + _rvRp!.filas.first.rpUf,
+            pguClp: f?.pguClp ?? 0,
+            bacClp: f?.bacClp ?? 0,
+          ),
+        ],
+      ],
+    );
+    await comparativas.guardar(c);
+    mensajes.showSnackBar(const SnackBar(
+        content: Text('Comparativa guardada. La ves en Mis simulaciones.')));
+  }
+
   Widget _buildResultados(
     ResultadoRentaVitalicia rvi,
     ResultadoRetiroProgramado rp,
@@ -681,9 +816,32 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           'primer año.';
     }
 
+    final filas = <_FilaResumen>[
+      _FilaResumen('Renta Vitalicia', hc ? Colors.black : infoRvi.color,
+          rvi.pensionMensualClp),
+      _FilaResumen('Retiro Programado', hc ? Colors.black : infoRp.color,
+          rp.pensionMensualClp),
+      if (_temporal != null && _rvRp != null) ...[
+        _FilaResumen(
+            'Temporal + Vitalicia Diferida',
+            hc
+                ? Colors.black
+                : _info('renta_temporal_vitalicia_diferida').color,
+            _temporal!.temporalClp),
+        _FilaResumen(
+            'Vitalicia + Retiro Programado',
+            hc
+                ? Colors.black
+                : _info('renta_vitalicia_con_retiro_programado').color,
+            _rvRp!.filas.first.rvClp + _rvRp!.filas.first.rpClp),
+      ],
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _ResumenComparacion(filas: filas, scale: scale, hc: hc),
+        const SizedBox(height: 20),
         _TarjetaModalidad(
           nombre: 'Renta Vitalicia',
           icono: infoRvi.icono,
@@ -696,6 +854,8 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               ? null
               : 'Con este saldo queda bajo el mínimo para contratarla.',
           muted: !rvi.cumpleUmbralMinimo,
+          pgu: _pguRvi,
+          bac: _bacRvi,
           scale: scale,
           hc: hc,
           onTap: () => _abrirDetalle('renta_vitalicia_inmediata'),
@@ -713,6 +873,8 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               ? 'Tasa provisoria, por confirmar.'
               : null,
           muted: false,
+          pgu: _pguRp,
+          bac: _bacRp,
           scale: scale,
           hc: hc,
           onTap: () => _abrirDetalle('retiro_programado'),
@@ -734,8 +896,12 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               'Vitalicia fija en UF',
             ],
             aviso: 'Luego, desde los ${_temporal!.edadInicioVitalicia} años, '
-                'de por vida. No incluye cónyuge ni hijos.',
+                'de por vida. No incluye cónyuge.',
             muted: false,
+            pguEtiqueta: 'Desde los ${_temporal!.edadInicioVitalicia} años, '
+                'con la vitalicia',
+            pgu: _temporal!.pguClp,
+            bac: _temporal!.bacClp,
             scale: scale,
             hc: hc,
             onTap: () => _abrirDetalle('renta_temporal_vitalicia_diferida'),
@@ -755,8 +921,10 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
               '${100 - _pctRv}% retiro programado',
             ],
             aviso: 'La parte de retiro programado se recalcula cada año. '
-                'No incluye cónyuge ni hijos.',
+                'No incluye cónyuge.',
             muted: false,
+            pgu: _pguRvRp(),
+            bac: _bacRvRp(),
             scale: scale,
             hc: hc,
             onTap: () => _abrirDetalle('renta_vitalicia_con_retiro_programado'),
@@ -777,6 +945,15 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           fontScale: scale,
           text: '$resumen No son lo mismo: la Renta Vitalicia es fija y '
               'dura toda la vida; el Retiro Programado cambia cada año.',
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _guardarComparativa,
+            icon: const Icon(Icons.bookmark_add_outlined),
+            label: const Text('Guardar esta comparativa'),
+          ),
         ),
       ],
     );
@@ -834,6 +1011,9 @@ class _TarjetaModalidad extends StatelessWidget {
   final List<String> chips;
   final String? aviso;
   final bool muted;
+  final double pgu;
+  final double bac;
+  final String pguEtiqueta;
   final double scale;
   final bool hc;
   final VoidCallback onTap;
@@ -848,10 +1028,29 @@ class _TarjetaModalidad extends StatelessWidget {
     required this.chips,
     required this.aviso,
     required this.muted,
+    this.pgu = 0,
+    this.bac = 0,
+    this.pguEtiqueta = 'Desde los 65 años',
     required this.scale,
     required this.hc,
     required this.onTap,
   });
+
+  Widget _filaAporte(String k, double v, {bool destacado = false}) {
+    final estilo = destacado
+        ? AppTextStyles.body(scale, color: hc ? Colors.black : null)
+            .copyWith(fontWeight: FontWeight.w800)
+        : AppTextStyles.small(scale, color: hc ? Colors.black87 : null);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(k, style: estilo)),
+          Text(_clp(v), style: estilo),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -902,12 +1101,124 @@ class _TarjetaModalidad extends StatelessWidget {
               for (final c in chips) AppChip(label: c, color: color),
             ],
           ),
+          if (pgu > 0 || bac > 0) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (hc ? Colors.black : AppColors.teal)
+                    .withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Aportes del Estado · $pguEtiqueta',
+                      style: AppTextStyles.small(scale,
+                              color: hc ? Colors.black : AppColors.tealDeep)
+                          .copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  if (pgu > 0) _filaAporte('PGU', pgu),
+                  if (bac > 0) _filaAporte('BAC', bac),
+                  const SizedBox(height: 4),
+                  _filaAporte('Total estimado al mes', monto + pgu + bac,
+                      destacado: true),
+                ],
+              ),
+            ),
+          ],
           if (aviso != null) ...[
             const SizedBox(height: 10),
             Text(aviso!,
                 style: AppTextStyles.small(scale,
                     color: hc ? Colors.black54 : null)),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FilaResumen {
+  final String nombre;
+  final Color color;
+  final double monto;
+  const _FilaResumen(this.nombre, this.color, this.monto);
+}
+
+/// Encabezado de la comparativa: barras para ver de un vistazo cuánto da
+/// cada modalidad al mes al pensionarte.
+class _ResumenComparacion extends StatelessWidget {
+  final List<_FilaResumen> filas;
+  final double scale;
+  final bool hc;
+
+  const _ResumenComparacion(
+      {required this.filas, required this.scale, required this.hc});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = hc ? Colors.black : AppColors.teal;
+    final maximo = filas.fold<double>(0, (m, f) => f.monto > m ? f.monto : m);
+    final mejor = filas.isEmpty
+        ? null
+        : filas.reduce((a, b) => b.monto > a.monto ? b : a);
+
+    return JubiloCard(
+      borderColor: accent,
+      borderWidth: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconBadge(icon: Icons.bar_chart_rounded, color: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Así se comparan',
+                    style: AppTextStyles.heading(scale * 0.85,
+                        color: hc ? Colors.black : null)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Pensión mensual al pensionarte, sin aportes del Estado.',
+              style: AppTextStyles.small(scale,
+                  color: hc ? Colors.black54 : null)),
+          const SizedBox(height: 14),
+          for (final f in filas) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(f.nombre,
+                      style: AppTextStyles.small(scale,
+                              color: hc ? Colors.black : null)
+                          .copyWith(fontWeight: FontWeight.w700)),
+                ),
+                Text(_clp(f.monto),
+                    style: AppTextStyles.small(scale,
+                            color: hc ? Colors.black : null)
+                        .copyWith(fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: maximo <= 0 ? 0 : (f.monto / maximo).clamp(0.0, 1.0),
+                minHeight: 10,
+                color: f.color,
+                backgroundColor: AppColors.creamDeep,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (mejor != null && filas.length > 1)
+            Text('Mayor monto al mes: ${mejor.nombre}.',
+                style: AppTextStyles.small(scale,
+                        color: hc ? Colors.black : AppColors.tealDeep)
+                    .copyWith(fontWeight: FontWeight.w800)),
         ],
       ),
     );
