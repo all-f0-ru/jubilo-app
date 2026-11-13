@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../models/cliente_registro.dart';
 import '../providers/premium_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/compras_service.dart';
+import '../services/correo_bienvenida_service.dart';
+import '../services/nube_service.dart';
 import '../services/registro_clientes_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -43,6 +46,19 @@ class _PremiumScreenState extends State<PremiumScreen> {
   bool _guardando = false;
   String? _errorGuardar;
 
+  /// Precio que informa Google Play (si no hay, el texto por defecto).
+  String get _precio => ComprasService.precioTexto ?? precioPremiumTexto;
+
+  @override
+  void initState() {
+    super.initState();
+    if (ComprasService.activa) {
+      ComprasService.cargarProducto().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nombre.dispose();
@@ -70,7 +86,33 @@ class _PremiumScreenState extends State<PremiumScreen> {
         correo: _correo.text.trim(),
         fecha: DateTime.now(),
       ));
+      if (ComprasService.activa) {
+        // Pago real con Google Play.
+        final r = await ComprasService.comprar();
+        if (!mounted) return;
+        if (r == ResultadoCompra.exito) {
+          navigator.pop(true);
+        } else {
+          setState(() {
+            _guardando = false;
+            _errorGuardar = switch (r) {
+              ResultadoCompra.cancelada =>
+                'El pago fue cancelado. No se hizo ningún cobro.',
+              ResultadoCompra.pendiente =>
+                'Tu pago está pendiente. Cuando Google Play lo confirme, '
+                    'Premium se activará solo.',
+              _ => 'No pudimos completar el pago con Google Play. '
+                  'Inténtalo de nuevo en unos minutos.',
+            };
+          });
+        }
+        return;
+      }
+      // Web y computador: demostración, sin cobro.
       await premium.activarDemo();
+      await NubeService.marcarPremium(origen: 'demo');
+      // Sin await: el correo no hace esperar a la persona.
+      CorreoBienvenidaService.enviarSiCorresponde();
       navigator.pop(true);
     } catch (_) {
       if (!mounted) return;
@@ -211,7 +253,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
         Text('Únete a Premium',
             style: AppTextStyles.heading(scale * 0.85, color: Colors.white)),
         const SizedBox(height: 2),
-        Text('Pago único · $precioPremiumTexto',
+        Text('Pago único · $_precio',
             style: AppTextStyles.small(scale, color: Colors.white70)),
         const SizedBox(height: 14),
         SizedBox(
@@ -321,7 +363,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Pago único · $precioPremiumTexto',
+        Text('Pago único · $_precio',
             style: AppTextStyles.small(scale, color: Colors.white70)),
         const SizedBox(height: 12),
         SizedBox(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/config/enlaces_legales.dart';
 import '../core/providers/premium_provider.dart';
 import '../core/providers/settings_provider.dart';
+import '../core/services/compras_service.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_text_styles.dart';
 
@@ -75,6 +77,18 @@ class SettingsScreen extends StatelessWidget {
             ),
             const Divider(height: 32),
 
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.privacy_tip_outlined,
+                  color: highContrast ? Colors.black : AppColors.teal),
+              title: Text('Política de privacidad',
+                  style: AppTextStyles.body(scale,
+                      color: highContrast ? Colors.black : null)),
+              trailing: const Icon(Icons.open_in_new_rounded),
+              onTap: () => EnlacesLegales.abrirPoliticaPrivacidad(context),
+            ),
+            const Divider(height: 32),
+
             SwitchListTile(
               value: settings.voiceEnabled,
               onChanged: (v) =>
@@ -89,6 +103,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               contentPadding: EdgeInsets.zero,
             ),
+            if (!ComprasService.activa) ...[
             const Divider(height: 32),
 
             // Solo para probar el flujo mientras los pagos son de demostración.
@@ -112,6 +127,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               contentPadding: EdgeInsets.zero,
             ),
+            ],
           ],
         ),
       ),
