@@ -34,7 +34,16 @@ class ParametrosPguBac {
   });
 }
 
+/// Parámetros vigentes de PGU y BAC. Se pueden actualizar sin publicar la
+/// app (vienen de Firebase); si no hay conexión se usan los del código.
+ParametrosPguBac parametrosPguBacActual = const ParametrosPguBac();
+
 const double _bGompertz = 0.095;
+
+/// Edad máxima (inclusive) hasta la que un hijo/a tiene derecho a pensión,
+/// igual que en el cálculo oficial del cliente (cnu_rv_v20.py).
+const int edadMaximaHijo = 23;
+const int maximoHijos = 6;
 
 double Function(double) _supervivencia(double a, double x0) {
   return (double t) => math.exp(
@@ -77,6 +86,57 @@ double factorAnualidadGompertz(double a, double edad, double tasa) {
     suma += s(k / 12) / math.pow(1 + im, k);
   }
   return suma;
+}
+
+void _validarHijos(List<int> edades) {
+  if (edades.length > maximoHijos) {
+    throw ModalidadesMixtasException(
+        'Se pueden considerar hasta $maximoHijos hijos/as.');
+  }
+  for (final h in edades) {
+    if (h < 0 || h > edadMaximaHijo) {
+      throw ModalidadesMixtasException(
+          'Los hijos/as con derecho a pensión tienen entre 0 y '
+          '$edadMaximaHijo años.');
+    }
+  }
+}
+
+/// Costo adicional de la pensión de los hijos/as, por unidad de pensión
+/// mensual del afiliado. Aproximación referencial:
+///   - Sin cónyuge (D.L. 3.500, art. 58 y cnu_rv_v20.py del cliente): cada
+///     hijo/a con derecho recibe 15% de la pensión, más el 50% que se
+///     reparte en partes iguales entre los hijos/as (15% + 50% / n),
+///     desde el fallecimiento del afiliado y hasta los 23 años cumplidos
+///     (hijos de 18 a 23 años se suponen estudiando).
+///   - Se ignora la mortalidad de los hijos/as.
+///   - Solo se cuentan los pagos desde el mes [desdeMes] + 1.
+/// [s] es la supervivencia del afiliado medida desde el inicio de la
+/// pensión y [im] la tasa mensual.
+double _terminoHijos(double Function(double) s, double im, List<int> edades,
+    {int desdeMes = 0}) {
+  final activos = edades.where((h) => h >= 0 && h <= edadMaximaHijo).toList();
+  if (activos.isEmpty) return 0.0;
+  final porcentaje = 0.15 + 0.50 / activos.length;
+  var total = 0.0;
+  for (final h in activos) {
+    final hasta = math.min(12 * (edadMaximaHijo + 1 - h), 12 * 65 - 1);
+    for (var k = desdeMes + 1; k <= hasta; k++) {
+      total += porcentaje * (1 - s(k / 12)) / math.pow(1 + im, k);
+    }
+  }
+  return total;
+}
+
+/// Igual que [factorAnualidadGompertz], pero sumando el costo de la pensión
+/// de los hijos/as ([hijosEdades] medidas hoy, a la edad [edad]).
+double factorConHijosGompertz(
+    double a, double edad, double tasa, List<int> hijosEdades) {
+  final base = factorAnualidadGompertz(a, edad, tasa);
+  if (hijosEdades.isEmpty) return base;
+  final s = _supervivencia(a, edad);
+  final im = math.pow(1 + tasa, 1 / 12).toDouble() - 1;
+  return base + _terminoHijos(s, im, hijosEdades);
 }
 
 double calcularPgu(double pensionBase, ParametrosPguBac p) {
@@ -157,8 +217,10 @@ ResultadoRvRp simularRvInmediataConRp({
   required double aniosCotizados,
   int minimoAnios = 20,
   int horizonte = 90,
+  List<int> hijosEdades = const [],
   ParametrosPguBac pgu = const ParametrosPguBac(),
 }) {
+  _validarHijos(hijosEdades);
   if (saldoClp <= 0) {
     throw ModalidadesMixtasException('El saldo debe ser mayor que cero.');
   }
@@ -175,7 +237,7 @@ ResultadoRvRp simularRvInmediataConRp({
 
   final primaRv = saldoUf * pctRv;
   final rvUf = primaRv > 0
-      ? primaRv / factorAnualidadGompertz(a, edad.toDouble(), tasaRv)
+      ? primaRv / factorConHijosGompertz(a, edad.toDouble(), tasaRv, hijosEdades)
       : 0.0;
 
   var bal = saldoUf * (1 - pctRv);
@@ -184,8 +246,14 @@ ResultadoRvRp simularRvInmediataConRp({
 
   final filas = <FilaRvRp>[];
   for (var x = edad; x <= horizonte; x++) {
-    final rpUf =
-        bal > 0 ? bal / factorAnualidadGompertz(a, x.toDouble(), tasaRp) : 0.0;
+    // Los hijos/as van creciendo: los que pasan de 23 años dejan de contar.
+    final hijosX = hijosEdades
+        .map((h) => h + (x - edad))
+        .where((h) => h <= edadMaximaHijo)
+        .toList();
+    final rpUf = bal > 0
+        ? bal / factorConHijosGompertz(a, x.toDouble(), tasaRp, hijosX)
+        : 0.0;
     final saldoActualUf = bal;
     for (var i = 0; i < 12; i++) {
       bal = bal * (1 + imReal) - rpUf;
@@ -261,8 +329,10 @@ ResultadoTemporalVitalicia simularRentaTemporalVitalicia({
   required double aniosCotizados,
   int minimoAnios = 20,
   double? pensionBaseClp,
+  List<int> hijosEdades = const [],
   ParametrosPguBac pgu = const ParametrosPguBac(),
 }) {
+  _validarHijos(hijosEdades);
   if (saldoClp <= 0) {
     throw ModalidadesMixtasException('El saldo debe ser mayor que cero.');
   }
@@ -292,6 +362,9 @@ ResultadoTemporalVitalicia simularRentaTemporalVitalicia({
   for (var k = n + 1; k < 12 * 60; k++) {
     fVitalicia += s(k / 12) / math.pow(1 + im, k);
   }
+
+  // Costo de la pensión de los hijos/as, solo desde que parte la vitalicia.
+  fVitalicia += _terminoHijos(s, im, hijosEdades, desdeMes: n);
 
   final vitalicioUf = saldoUf / (relacion * fTemporal + fVitalicia);
   final temporalUf = relacion * vitalicioUf;

@@ -12,6 +12,8 @@ import '../../core/providers/simulaciones_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_motion.dart';
+import '../../core/services/parametros_service.dart';
+import '../../core/widgets/hijos_selector.dart';
 import '../../core/widgets/jubilo_widgets.dart';
 import '../../core/widgets/premium_sheet.dart';
 import 'mis_simulaciones_screen.dart';
@@ -68,19 +70,19 @@ class CalculadoraMixtaScreen extends StatefulWidget {
 }
 
 class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
-  static const double _rentabilidadReal = 0.035;
-
   final TextEditingController _saldoCtrl = TextEditingController();
   int _edad = 63;
   int _aniosCotizados = 25;
   int _pctRv = 50; // solo RV + RP
   int _aniosTemporal = 2; // solo Temporal + Vitalicia
   int _relacionPct = 150; // solo Temporal + Vitalicia
+  List<int> _hijos = [];
 
   bool _calculado = false;
   bool _recienGuardada = false;
   final ScrollController _scroll = ScrollController();
 
+  bool get _conHijos => widget.respuestas.tieneHijos;
   bool get _esRvRp => widget.modalidad == ModalidadMixta.rvConRp;
   int? get _saldo => int.tryParse(_saldoCtrl.text.replaceAll('.', ''));
 
@@ -95,6 +97,17 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
     }
     if (recordados.aniosCotizados != null) {
       _aniosCotizados = recordados.aniosCotizados!.clamp(0, 45);
+    }
+    _pctRv = recordados.extraInt('pctRv') ?? _pctRv;
+    _aniosTemporal = (recordados.extraInt('aniosTemporal') ?? _aniosTemporal)
+        .clamp(1, 5);
+    _relacionPct = recordados.extraInt('relacionPct') ?? _relacionPct;
+    if (_conHijos) {
+      _hijos = recordados
+          .extraListaInt('hijosEdades')
+          .where((h) => h >= 0 && h <= edadMaximaHijo)
+          .take(maximoHijos)
+          .toList();
     }
   }
 
@@ -112,6 +125,12 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
     });
     context.read<RespuestasEncuestaProvider>().recordarDatos(
         saldoClp: _saldo, edad: _edad, aniosCotizados: _aniosCotizados);
+    context.read<RespuestasEncuestaProvider>().recordarExtras({
+      'pctRv': _pctRv,
+      'aniosTemporal': _aniosTemporal,
+      'relacionPct': _relacionPct,
+      'hijosEdades': _hijos,
+    });
   }
 
   /// Ejecuta el cálculo con los datos actuales. Devuelve el resultado, una
@@ -129,10 +148,12 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
           pctRv: _pctRv / 100,
           tasaRv: ParametrosVigentes.tasaReferenciaVejez,
           tasaRp: ParametrosVigentes.tasaRetiroProgramado,
-          rentabilidad: _rentabilidadReal,
+          rentabilidad: ParametrosVigentes.rentabilidadReal,
           valorUf: ParametrosVigentes.valorUf,
           aniosCotizados: _aniosCotizados.toDouble(),
           minimoAnios: minimo,
+          hijosEdades: _conHijos ? _hijos : const [],
+          pgu: parametrosPguBacActual,
         );
       }
       return simularRentaTemporalVitalicia(
@@ -144,6 +165,8 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
         valorUf: ParametrosVigentes.valorUf,
         aniosCotizados: _aniosCotizados.toDouble(),
         minimoAnios: minimo,
+        hijosEdades: _conHijos ? _hijos : const [],
+        pgu: parametrosPguBacActual,
       );
     } on ModalidadesMixtasException catch (e) {
       return e;
@@ -433,6 +456,16 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
                   style: AppTextStyles.small(scale,
                       color: hc ? Colors.black54 : null)),
             ],
+            if (_conHijos) ...[
+              const SizedBox(height: 28),
+              _titulo('Tus hijos/as', scale, hc),
+              HijosSelector(
+                edades: _hijos,
+                scale: scale,
+                altoContraste: hc,
+                onChanged: (v) => _actualizar(() => _hijos = v),
+              ),
+            ],
             const SizedBox(height: 28),
 
             _titulo('Años cotizados (para el BAC)', scale, hc),
@@ -470,7 +503,11 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _supuesto('Valor de la UF',
-                      '\$${_puntos(ParametrosVigentes.valorUf.round().toString())}',
+                      '\$${_puntos(ParametrosVigentes.valorUf.round().toString())} '
+                      '(${ParametrosVigentes.valorUfFecha.day}-'
+                      '${ParametrosVigentes.valorUfFecha.month}-'
+                      '${ParametrosVigentes.valorUfFecha.year}). '
+                      '${ParametrosService.descripcionUf()}',
                       scale, hc),
                   _supuesto(
                       'Tasa de la renta vitalicia',
@@ -481,9 +518,18 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
                         'Tasa técnica del retiro programado',
                         '${(ParametrosVigentes.tasaRetiroProgramado * 100).toStringAsFixed(2).replaceAll('.', ',')}%',
                         scale, hc),
-                    _supuesto('Rentabilidad real de tu fondo', '3,5% al año',
+                    _supuesto(
+                        'Rentabilidad real de tu fondo',
+                        '${(ParametrosVigentes.rentabilidadReal * 100).toStringAsFixed(1).replaceAll('.', ',')}% al año',
                         scale, hc),
                   ],
+                  if (_conHijos && _hijos.isNotEmpty)
+                    _supuesto(
+                        'Hijos/as',
+                        'Cada uno recibiría 15% de la pensión más el 50% repartido '
+                        'entre los hijos, hasta los 23 años (D.L. 3.500, art. '
+                        '58; aproximación referencial, sin cónyuge).',
+                        scale, hc),
                   _supuesto('Mortalidad',
                       'Aproximada (esperanza de vida de 19,5 años a los 65)',
                       scale, hc),
@@ -494,7 +540,7 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
             Text(
               'Estimación educativa, en valores de hoy y antes de descuentos '
               'de salud e impuestos. No incluye comisiones ni márgenes de las '
-              'aseguradoras, ni beneficiarios. Los montos definitivos se '
+              'aseguradoras, ni cónyuge. Los montos definitivos se '
               'obtienen cotizando en SCOMP.',
               textAlign: TextAlign.center,
               style:
@@ -631,7 +677,7 @@ class _CalculadoraMixtaScreenState extends State<CalculadoraMixtaScreen> {
       ResultadoTemporalVitalicia r, double scale, bool hc) {
     final accent = hc ? Colors.black : AppColors.teal;
     final fin = r.edadInicioVitalicia;
-    final aviso = r.vitalicioClp > 789139 * 0.95
+    final aviso = r.vitalicioClp > parametrosPguBacActual.pensionInferior * 0.95
         ? 'Tu renta vitalicia está cerca del límite para recibir la PGU '
             'completa. Confirma el monto real con tu AFP o el IPS.'
         : null;

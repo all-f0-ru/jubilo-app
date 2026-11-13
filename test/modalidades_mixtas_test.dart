@@ -152,4 +152,63 @@ void main() {
       expect(calcularBacUf(30, minimoAniosBac('Hombre'), p), closeTo(2.5, 1e-9));
     });
   });
+
+  group('Hijos/as (aproximación referencial)', () {
+    const uf = 41152.13;
+    test('RV + RP con un hijo de 10 años calza con la referencia', () {
+      final r = simularRvInmediataConRp(
+        saldoClp: 140000000, edad: 63, pctRv: 0.5, tasaRv: 0.03,
+        tasaRp: 0.035, rentabilidad: 0.035, valorUf: uf,
+        aniosCotizados: 25, hijosEdades: const [10],
+      );
+      expect(r.rvUf, closeTo(9.087901473292742, 1e-6));
+      expect(r.filas.first.rpUf, closeTo(9.56021964052152, 1e-6));
+      expect(r.filas.firstWhere((f) => f.edad == 70).rpUf,
+          closeTo(9.018628136796536, 1e-6));
+    });
+    test('RV + RP con dos hijos', () {
+      final r = simularRvInmediataConRp(
+        saldoClp: 140000000, edad: 63, pctRv: 0.5, tasaRv: 0.03,
+        tasaRp: 0.035, rentabilidad: 0.035, valorUf: uf,
+        aniosCotizados: 25, hijosEdades: const [5, 12],
+      );
+      expect(r.rvUf, closeTo(8.840578161664023, 1e-6));
+      expect(r.filas.first.rpUf, closeTo(9.3055008848826, 1e-6));
+    });
+    test('Temporal + vitalicia diferida con hijos', () {
+      var r = simularRentaTemporalVitalicia(
+        saldoClp: 140000000, edad: 63, aniosTemporal: 2, relacion: 1.5,
+        tasa: 0.03, valorUf: uf, aniosCotizados: 25, hijosEdades: const [10],
+      );
+      expect(r.vitalicioUf, closeTo(17.104436185711663, 1e-6));
+      expect(r.temporalUf, closeTo(25.656654278567494, 1e-6));
+      r = simularRentaTemporalVitalicia(
+        saldoClp: 140000000, edad: 60, aniosTemporal: 3, relacion: 2.0,
+        tasa: 0.025, valorUf: uf, aniosCotizados: 20,
+        hijosEdades: const [0, 8, 16],
+      );
+      expect(r.vitalicioUf, closeTo(13.292274623242232, 1e-6));
+    });
+    test('sin hijos queda igual que antes y más hijos bajan la pensión', () {
+      final sin = simularRentaTemporalVitalicia(
+        saldoClp: 140000000, edad: 63, aniosTemporal: 2, relacion: 1.5,
+        tasa: 0.03, valorUf: uf, aniosCotizados: 25,
+      );
+      expect(sin.vitalicioUf, closeTo(17.847552136792277, 1e-6));
+      final con = simularRentaTemporalVitalicia(
+        saldoClp: 140000000, edad: 63, aniosTemporal: 2, relacion: 1.5,
+        tasa: 0.03, valorUf: uf, aniosCotizados: 25,
+        hijosEdades: const [3, 6],
+      );
+      expect(con.vitalicioUf, lessThan(sin.vitalicioUf));
+    });
+    test('hijo de 24 años o más de 6 hijos dan error', () {
+      expect(
+        () => simularRentaTemporalVitalicia(
+          saldoClp: 1e8, edad: 63, aniosTemporal: 2, relacion: 1.5,
+          tasa: 0.03, valorUf: uf, aniosCotizados: 25, hijosEdades: const [24]),
+        throwsA(isA<ModalidadesMixtasException>()),
+      );
+    });
+  });
 }
