@@ -445,20 +445,48 @@ class _TarjetaGrafica extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          if (repetidas.isEmpty)
+          const Divider(height: 24),
+          Text('Tendencia de tu pensión',
+              style: AppTextStyles.body(scale,
+                      color: hc ? Colors.black : null)
+                  .copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('Pensión mensual estimada en cada simulación guardada',
+              style: AppTextStyles.small(scale, color: suave)),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              for (final m in presentes)
+                _Leyenda(
+                    texto: deModalidad(m).first.nombreModalidad,
+                    color: colores[m]!),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 200,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _TendenciaPainter(
+                simulaciones: simulaciones,
+                colores: colores,
+                textoColor: hc ? Colors.black87 : AppColors.inkSoft,
+                rejillaColor: hc ? Colors.black26 : AppColors.creamDeep,
+              ),
+            ),
+          ),
+          if (repetidas.isEmpty) ...[
+            const SizedBox(height: 8),
             Text(
               'Cuando repitas una simulación, aquí verás cómo cambia tu '
               'pensión.',
               style: AppTextStyles.small(scale, color: suave),
-            )
-          else ...[
-            const Divider(height: 24),
-            Text('Cómo ha cambiado',
-                style: AppTextStyles.body(scale,
-                        color: hc ? Colors.black : null)
-                    .copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            for (final m in repetidas) ...[
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            for (final m in repetidas)
               Builder(builder: (_) {
                 final lista = deModalidad(m);
                 final dif = lista.last.pensionMensualClp -
@@ -488,34 +516,6 @@ class _TarjetaGrafica extends StatelessWidget {
                   ),
                 );
               }),
-            ],
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 14,
-              runSpacing: 6,
-              children: [
-                for (final m in repetidas)
-                  _Leyenda(
-                      texto: deModalidad(m).first.nombreModalidad,
-                      color: colores[m]!),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 190,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _TendenciaPainter(
-                  simulaciones: [
-                    for (final s in simulaciones)
-                      if (repetidas.contains(s.modalidad)) s
-                  ],
-                  colores: colores,
-                  textoColor: hc ? Colors.black87 : AppColors.inkSoft,
-                  rejillaColor: hc ? Colors.black26 : AppColors.creamDeep,
-                ),
-              ),
-            ),
           ],
         ],
       ),
