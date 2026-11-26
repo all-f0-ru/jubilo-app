@@ -12,8 +12,8 @@ import '../aprender/como_empezar_screen.dart';
 import '../simulador/mis_simulaciones_screen.dart';
 
 /// Raíz de la pestaña "Inicio": encabezado con logo, saludo, tarjeta de
-/// etapa (vacía o personalizada), cápsulas informativas en video, y los
-/// accesos directos a Aprender / Simular / "¿Por dónde empiezo?".
+/// etapa (vacía o personalizada), los accesos directos a Aprender / Simular /
+/// "¿Por dónde empiezo?" y, al final, las cápsulas informativas en video.
 class HomeTabScreen extends StatelessWidget {
   const HomeTabScreen({super.key});
 
@@ -136,34 +136,6 @@ class HomeTabScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            Row(
-              children: [
-                Icon(Icons.play_arrow_rounded,
-                    color: hc ? Colors.black : AppColors.coral, size: 20),
-                const SizedBox(width: 4),
-                Text('Cápsulas informativas',
-                    style: AppTextStyles.heading(scale * 0.8,
-                        color: hc ? Colors.black : null)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 200,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: capsulasInformativas.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, i) {
-                  return _CapsulaCard(
-                    capsula: capsulasInformativas[i],
-                    scale: scale,
-                    hc: hc,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-
             _AccionCard(
               icon: Icons.menu_book_outlined,
               title: 'Aprender sobre mi pensión',
@@ -216,6 +188,35 @@ class HomeTabScreen extends StatelessWidget {
                   context.read<MainTabProvider>().setTab(1);
                 }
               },
+            ),
+            const SizedBox(height: 24),
+
+            // Cápsulas en video: van al final de la pantalla de inicio.
+            Row(
+              children: [
+                Icon(Icons.play_arrow_rounded,
+                    color: hc ? Colors.black : AppColors.coral, size: 20),
+                const SizedBox(width: 4),
+                Text('Cápsulas informativas',
+                    style: AppTextStyles.heading(scale * 0.8,
+                        color: hc ? Colors.black : null)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 200,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: capsulasInformativas.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, i) {
+                  return _CapsulaCard(
+                    capsula: capsulasInformativas[i],
+                    scale: scale,
+                    hc: hc,
+                  );
+                },
+              ),
             ),
           ],
         ),
