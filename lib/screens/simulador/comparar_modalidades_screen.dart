@@ -9,6 +9,7 @@ import '../../core/pension_engine/retiro_programado.dart';
 import '../../core/pension_engine/tm2020_assets.dart';
 import '../../core/providers/premium_provider.dart';
 import '../../core/providers/respuestas_encuesta_provider.dart';
+import '../../core/providers/simulaciones_provider.dart';
 import '../../core/providers/settings_provider.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/models/comparativa_guardada.dart';
@@ -770,6 +771,8 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     }
     final ahora = DateTime.now();
     final f = _filaA65();
+    final simsHechas = context.read<SimulacionesProvider>().todas;
+    bool hecha(String m) => simsHechas.any((x) => x.modalidad == m);
     final c = ComparativaGuardada(
       id: ahora.microsecondsSinceEpoch.toString(),
       fecha: ahora,
@@ -781,6 +784,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
       cantidadHijos: _conHijos ? _hijos.length : 0,
       valorUf: ParametrosVigentes.valorUf,
       filas: [
+        if (hecha(SimulacionGuardada.rentaVitalicia))
         FilaComparativa(
           modalidad: SimulacionGuardada.rentaVitalicia,
           montoClp: rvi.pensionMensualClp,
@@ -788,6 +792,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           pguClp: _pguRvi,
           bacClp: _bacRvi,
         ),
+        if (hecha(SimulacionGuardada.retiroProgramado))
         FilaComparativa(
           modalidad: SimulacionGuardada.retiroProgramado,
           montoClp: rp.pensionMensualClp,
@@ -796,6 +801,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           bacClp: _bacRp,
         ),
         if (_temporal != null && _rvRp != null) ...[
+          if (hecha(SimulacionGuardada.temporalVitalicia))
           FilaComparativa(
             modalidad: SimulacionGuardada.temporalVitalicia,
             montoClp: _temporal!.temporalClp,
@@ -803,6 +809,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
             pguClp: _temporal!.pguClp,
             bacClp: _temporal!.bacClp,
           ),
+          if (hecha(SimulacionGuardada.rvConRp))
           FilaComparativa(
             modalidad: SimulacionGuardada.rvConRp,
             montoClp: _rvRp!.filas.first.rvClp + _rvRp!.filas.first.rpClp,
@@ -826,6 +833,13 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
   ) {
     final infoRvi = _info('renta_vitalicia_inmediata');
     final infoRp = _info('retiro_programado');
+    // Solo se muestran las modalidades que la persona ya simuló y guardó.
+    final sims = context.watch<SimulacionesProvider>().todas;
+    bool hecha(String m) => sims.any((x) => x.modalidad == m);
+    final hechaRvi = hecha(SimulacionGuardada.rentaVitalicia);
+    final hechaRp = hecha(SimulacionGuardada.retiroProgramado);
+    final hechaTemp = hecha(SimulacionGuardada.temporalVitalicia);
+    final hechaRvRp = hecha(SimulacionGuardada.rvConRp);
     final diferencia = rvi.pensionMensualClp - rp.pensionMensualClp;
 
     // Siempre se nombran los dos montos (los mismos de las tarjetas de
@@ -845,17 +859,21 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     }
 
     final filas = <_FilaResumen>[
-      _FilaResumen('Renta Vitalicia', hc ? Colors.black : infoRvi.color,
-          rvi.pensionMensualClp),
-      _FilaResumen('Retiro Programado', hc ? Colors.black : infoRp.color,
-          rp.pensionMensualClp),
+      if (hechaRvi)
+        _FilaResumen('Renta Vitalicia', hc ? Colors.black : infoRvi.color,
+            rvi.pensionMensualClp),
+      if (hechaRp)
+        _FilaResumen('Retiro Programado', hc ? Colors.black : infoRp.color,
+            rp.pensionMensualClp),
       if (_temporal != null && _rvRp != null) ...[
+        if (hechaTemp)
         _FilaResumen(
             'Temporal + Vitalicia Diferida',
             hc
                 ? Colors.black
                 : _info('renta_temporal_vitalicia_diferida').color,
             _temporal!.temporalClp),
+        if (hechaRvRp)
         _FilaResumen(
             'Vitalicia + Retiro Programado',
             hc
@@ -868,8 +886,32 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ResumenComparacion(filas: filas, scale: scale, hc: hc),
+        if (filas.isEmpty)
+          InfoBanner(
+            variant: BannerVariant.info,
+            fontScale: scale,
+            text: 'Aún no has simulado ni guardado ninguna modalidad. '
+                'Simula una y guárdala: aparecerá aquí para compararla.',
+          )
+        else if (filas.length == 1)
+          InfoBanner(
+            variant: BannerVariant.info,
+            fontScale: scale,
+            text: 'Para comparar, simula y guarda al menos otra modalidad.',
+          )
+        else
+          _ResumenComparacion(filas: filas, scale: scale, hc: hc),
         const SizedBox(height: 20),
+        if (!hechaRvi)
+          _TarjetaPendiente(
+            nombre: 'Renta Vitalicia',
+            icono: infoRvi.icono,
+            color: hc ? Colors.black : infoRvi.color,
+            scale: scale,
+            hc: hc,
+            onTap: () => _abrirDetalle('renta_vitalicia_inmediata'),
+          )
+        else
         _TarjetaModalidad(
           nombre: 'Renta Vitalicia',
           icono: infoRvi.icono,
@@ -889,6 +931,16 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
           onTap: () => _abrirDetalle('renta_vitalicia_inmediata'),
         ),
         const SizedBox(height: 12),
+        if (!hechaRp)
+          _TarjetaPendiente(
+            nombre: 'Retiro Programado',
+            icono: infoRp.icono,
+            color: hc ? Colors.black : infoRp.color,
+            scale: scale,
+            hc: hc,
+            onTap: () => _abrirDetalle('retiro_programado'),
+          )
+        else
         _TarjetaModalidad(
           nombre: 'Retiro Programado',
           icono: infoRp.icono,
@@ -909,6 +961,18 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
         ),
         if (_temporal != null && _rvRp != null) ...[
           const SizedBox(height: 12),
+          if (!hechaTemp)
+            _TarjetaPendiente(
+              nombre: 'Renta Temporal + Vitalicia Diferida',
+              icono: _info('renta_temporal_vitalicia_diferida').icono,
+              color: hc
+                  ? Colors.black
+                  : _info('renta_temporal_vitalicia_diferida').color,
+              scale: scale,
+              hc: hc,
+              onTap: () => _abrirDetalle('renta_temporal_vitalicia_diferida'),
+            )
+          else
           _TarjetaModalidad(
             nombre: 'Renta Temporal + Vitalicia Diferida',
             icono: _info('renta_temporal_vitalicia_diferida').icono,
@@ -935,6 +999,19 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
             onTap: () => _abrirDetalle('renta_temporal_vitalicia_diferida'),
           ),
           const SizedBox(height: 12),
+          if (!hechaRvRp)
+            _TarjetaPendiente(
+              nombre: 'Renta Vitalicia + Retiro Programado',
+              icono: _info('renta_vitalicia_con_retiro_programado').icono,
+              color: hc
+                  ? Colors.black
+                  : _info('renta_vitalicia_con_retiro_programado').color,
+              scale: scale,
+              hc: hc,
+              onTap: () =>
+                  _abrirDetalle('renta_vitalicia_con_retiro_programado'),
+            )
+          else
           _TarjetaModalidad(
             nombre: 'Renta Vitalicia + Retiro Programado',
             icono: _info('renta_vitalicia_con_retiro_programado').icono,
@@ -967,22 +1044,26 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
                 'comparan hasta los 65 años.',
           ),
         ],
-        const SizedBox(height: 12),
-        InfoBanner(
-          variant: BannerVariant.info,
-          fontScale: scale,
-          text: '$resumen No son lo mismo: la Renta Vitalicia es fija y '
-              'dura toda la vida; el Retiro Programado cambia cada año.',
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _guardarComparativa,
-            icon: const Icon(Icons.bookmark_add_outlined),
-            label: const Text('Guardar esta comparativa'),
+        if (hechaRvi && hechaRp) ...[
+          const SizedBox(height: 12),
+          InfoBanner(
+            variant: BannerVariant.info,
+            fontScale: scale,
+            text: '$resumen No son lo mismo: la Renta Vitalicia es fija y '
+                'dura toda la vida; el Retiro Programado cambia cada año.',
           ),
-        ),
+        ],
+        if (filas.length >= 2) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _guardarComparativa,
+              icon: const Icon(Icons.bookmark_add_outlined),
+              label: const Text('Guardar esta comparativa'),
+            ),
+          ),
+        ],
         const NotaTransparencia(),
       ],
     );
@@ -1024,6 +1105,56 @@ class _BloqueoPremium extends StatelessWidget {
               child: const Text('Ver Premium'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Modalidad que la persona todavía no ha simulado: invita a simularla.
+class _TarjetaPendiente extends StatelessWidget {
+  final String nombre;
+  final IconData icono;
+  final Color color;
+  final double scale;
+  final bool hc;
+  final VoidCallback onTap;
+
+  const _TarjetaPendiente({
+    required this.nombre,
+    required this.icono,
+    required this.color,
+    required this.scale,
+    required this.hc,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return JubiloCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          IconBadge(icon: icono, color: color, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(nombre,
+                    style: AppTextStyles.body(scale,
+                            color: hc ? Colors.black : null)
+                        .copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text('Aún no la has simulado. Toca para simularla y '
+                    'guardarla.',
+                    style: AppTextStyles.small(scale,
+                        color: hc ? Colors.black54 : AppColors.inkSoft)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded,
+              color: hc ? Colors.black : AppColors.inkSoft),
         ],
       ),
     );
