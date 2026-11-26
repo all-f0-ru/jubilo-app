@@ -26,6 +26,15 @@ class ComparativasProvider extends ChangeNotifier {
   List<ComparativaGuardada> get todas => List.unmodifiable(_items);
   bool get cargado => _cargado;
 
+  /// ¿Ya hay una comparativa guardada con la fecha de hoy?
+  bool get hayGuardadaHoy {
+    final hoy = DateTime.now();
+    return _items.any((c) =>
+        c.fecha.year == hoy.year &&
+        c.fecha.month == hoy.month &&
+        c.fecha.day == hoy.day);
+  }
+
   Future<void> _cargar() async {
     try {
       final prefs = await SharedPreferences.getInstance();

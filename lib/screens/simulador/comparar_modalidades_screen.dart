@@ -20,6 +20,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/jubilo_motion.dart';
 import '../../core/widgets/jubilo_widgets.dart';
+import '../../core/widgets/nota_transparencia.dart';
 import '../modalidades/modalidad_detail_screen.dart';
 
 /// Respuestas de partida cuando la persona entra sin haber hecho la encuesta
@@ -744,6 +745,29 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     if (rvi == null || rp == null || saldo == null) return;
     final comparativas = context.read<ComparativasProvider>();
     final mensajes = ScaffoldMessenger.of(context);
+    // Si ya guardó una hoy, avisamos y guardamos solo si está de acuerdo.
+    if (comparativas.hayGuardadaHoy) {
+      final acepta = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ya guardaste una comparativa hoy'),
+          content: const Text(
+              'Hoy ya hay una versión guardada. ¿Quieres guardar esta '
+              'como una versión nueva del día?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('No, cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Sí, guardar'),
+            ),
+          ],
+        ),
+      );
+      if (acepta != true || !mounted) return;
+    }
     final ahora = DateTime.now();
     final f = _filaA65();
     final c = ComparativaGuardada(
@@ -804,16 +828,20 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
     final infoRp = _info('retiro_programado');
     final diferencia = rvi.pensionMensualClp - rp.pensionMensualClp;
 
+    // Siempre se nombran los dos montos (los mismos de las tarjetas de
+    // arriba) y la diferencia aparte, para que no se confunda con un monto.
+    final montos = 'Renta Vitalicia: ${_clp(rvi.pensionMensualClp)} al mes. '
+        'Retiro Programado: ${_clp(rp.pensionMensualClp)} al mes el primer '
+        'año.';
     final String resumen;
     if (diferencia.abs() < 1000) {
-      resumen = 'Con tu saldo, las dos dan un monto parecido el primer año.';
+      resumen = '$montos Con tu saldo, las dos dan un monto parecido.';
     } else if (diferencia > 0) {
-      resumen = 'Con tu saldo, la Renta Vitalicia da ${_clp(diferencia)} '
-          'más al mes que el Retiro Programado el primer año.';
+      resumen = '$montos La diferencia: la Renta Vitalicia da '
+          '${_clp(diferencia)} más al mes el primer año.';
     } else {
-      resumen = 'Con tu saldo, el Retiro Programado da '
-          '${_clp(-diferencia)} más al mes que la Renta Vitalicia el '
-          'primer año.';
+      resumen = '$montos La diferencia: el Retiro Programado da '
+          '${_clp(-diferencia)} más al mes el primer año.';
     }
 
     final filas = <_FilaResumen>[
@@ -955,6 +983,7 @@ class _CompararModalidadesScreenState extends State<CompararModalidadesScreen> {
             label: const Text('Guardar esta comparativa'),
           ),
         ),
+        const NotaTransparencia(),
       ],
     );
   }
