@@ -6,6 +6,8 @@ import '../simulador/simulador_estimacion_screen.dart';
 import '../simulador/calculadora_mixta_screen.dart';
 import '../../core/providers/respuestas_encuesta_provider.dart';
 import '../../core/providers/settings_provider.dart';
+import '../../core/providers/premium_provider.dart';
+import '../../core/widgets/premium_sheet.dart';
 import '../../core/models/simulador_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
@@ -38,7 +40,8 @@ class ModalidadDetailScreen extends StatelessWidget {
     return '65 o más';
   }
 
-  void _abrirCalculadora(BuildContext context, SettingsProvider settings) {
+  Future<void> _abrirCalculadora(
+      BuildContext context, SettingsProvider settings) async {
     HapticFeedback.selectionClick();
     final r = respuestas ??
         context.read<RespuestasEncuestaProvider>().respuestas ??
@@ -54,6 +57,11 @@ class ModalidadDetailScreen extends StatelessWidget {
             ? ModalidadMixta.rvConRp
             : null;
     if (mixta != null) {
+      // Las modalidades combinadas son Premium.
+      if (!context.read<PremiumProvider>().esPremium) {
+        final ok = await mostrarPremiumSheet(context);
+        if (!ok || !context.mounted) return;
+      }
       Navigator.of(context).push(
         JubiloPageRoute(
           builder: (_) =>

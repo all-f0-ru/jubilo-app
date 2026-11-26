@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../config/enlaces_legales.dart';
 import '../models/cliente_registro.dart';
 import '../providers/premium_provider.dart';
 import '../providers/settings_provider.dart';
@@ -224,8 +225,16 @@ class _PremiumScreenState extends State<PremiumScreen> {
         _Beneficio(
           icono: Icons.compare_arrows_rounded,
           titulo: 'Compara las modalidades',
-          texto: 'Mira lado a lado Renta Vitalicia y Retiro Programado '
-              'con tu saldo.',
+          texto: 'Mira lado a lado las alternativas con tu saldo y guarda '
+              'tus comparaciones para evaluarlas después.',
+          scale: scale,
+          hc: hc,
+        ),
+        _Beneficio(
+          icono: Icons.account_tree_outlined,
+          titulo: 'Alternativas combinadas',
+          texto: 'Renta Temporal con Renta Vitalicia Diferida, y Renta '
+              'Vitalicia con Retiro Programado.',
           scale: scale,
           hc: hc,
         ),
@@ -335,9 +344,19 @@ class _PremiumScreenState extends State<PremiumScreen> {
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
           title: Text(
-            'Acepto que Jubilo guarde mis datos para gestionar mi compra.',
+            'Acepto que Jubilo guarde mis datos (nombre, teléfono, correo y '
+            'mis simulaciones) para gestionar mi compra y darme las '
+            'funciones Premium, y que me envíe un correo de bienvenida.',
             style: AppTextStyles.small(scale,
                 color: hc ? Colors.black87 : null),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () =>
+                EnlacesLegales.abrirPoliticaPrivacidad(context),
+            child: const Text('Leer la política de privacidad'),
           ),
         ),
         if (_mostrarErrorAcepta)
