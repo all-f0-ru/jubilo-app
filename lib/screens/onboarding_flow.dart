@@ -76,8 +76,8 @@ class WelcomeScreen extends StatelessWidget {
         'complicadas.',
     'Aquí puedes:\n\n'
         '• Aprender sobre tu situación previsional, paso a paso.\n'
-        '• Simular tu pensión, de acuerdo a las modalidades de pensión '
-        'según tu caso.\n\n'
+        '• Calcular cuánto podrías recibir, según las alternativas para '
+        'recibir tu pensión.\n\n'
         'Todo pensado para leerse con calma, a tu ritmo.',
   ];
 

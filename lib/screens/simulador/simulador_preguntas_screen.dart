@@ -117,7 +117,7 @@ class _SimuladorPreguntasScreenState extends State<SimuladorPreguntasScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Simular',
+        title: Text('Calcula tu pensión',
             style: AppTextStyles.heading(0.85, color: hc ? Colors.black : null)),
       ),
       body: SafeArea(

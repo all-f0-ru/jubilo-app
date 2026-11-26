@@ -142,7 +142,7 @@ final List<Topic> topicsJubilo = [
   ),
   Topic(
     id: 'jubilacion_anticipada',
-    titulo: 'Jubilación anticipada e invalidez',
+    titulo: '¿Puedes jubilarte anticipadamente?',
     icono: Icons.hourglass_bottom_rounded,
     resumen: 'Pensionarte antes de la edad legal o por invalidez.',
     contenido: [

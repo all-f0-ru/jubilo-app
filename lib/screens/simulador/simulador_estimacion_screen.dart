@@ -19,6 +19,7 @@ import '../../core/theme/app_text_styles.dart';
 import '../../core/widgets/boton_escuchar.dart';
 import '../../core/widgets/jubilo_motion.dart';
 import '../../core/widgets/jubilo_widgets.dart';
+import '../../core/widgets/nota_transparencia.dart';
 
 /// Estimación de la pensión mensual en una Renta Vitalicia Inmediata,
 /// usando el motor actuarial (tablas TM2020, tasa de referencia y UF).
@@ -884,6 +885,7 @@ class _SimuladorEstimacionScreenState extends State<SimuladorEstimacionScreen> {
             ],
           ),
         ),
+        const NotaTransparencia(),
       ],
     );
   }

@@ -79,7 +79,7 @@ class SimuladorIntroScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: hc ? Colors.white : AppColors.cream,
-      appBar: jubiloAppBar(context, title: 'Simular', highContrast: hc),
+      appBar: jubiloAppBar(context, title: 'Calcula tu pensión', highContrast: hc),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),

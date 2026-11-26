@@ -30,7 +30,7 @@ class SimuladorResultadosScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Resultados',
+        title: Text('Tu estimación de pensión',
             style: AppTextStyles.heading(0.85, color: hc ? Colors.black : null)),
       ),
       body: SafeArea(
@@ -59,7 +59,7 @@ class SimuladorResultadosScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            Text('Tus modalidades orientativas',
+            Text('Alternativas para recibir tu pensión',
                 style: AppTextStyles.heading(scale * 0.85,
                     color: hc ? Colors.black : null)),
             const SizedBox(height: 12),
