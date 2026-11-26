@@ -272,6 +272,7 @@ class _TarjetaSimulacion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _colorModalidad(simulacion.modalidad, hc);
+    final suave = hc ? Colors.black54 : null;
 
     return JubiloCard(
       child: Column(
@@ -290,27 +291,47 @@ class _TarjetaSimulacion extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(_clp(simulacion.pensionMensualClp),
-                style: AppTextStyles.display(scale * 0.8,
+                style: AppTextStyles.display(scale * 0.85,
                     color: hc ? Colors.black : color)),
           ),
           Text(simulacion.bajada,
-              style: AppTextStyles.small(scale,
-                  color: hc ? Colors.black54 : null)),
+              style: AppTextStyles.small(scale, color: suave)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _Pildora(
+                  icono: Icons.savings_outlined,
+                  texto: 'Saldo ${_clp(simulacion.saldoClp)}',
+                  scale: scale,
+                  hc: hc),
+              _Pildora(
+                  icono: Icons.cake_outlined,
+                  texto: '${simulacion.edad} años',
+                  scale: scale,
+                  hc: hc),
+              if (simulacion.conConyuge)
+                _Pildora(
+                    icono: Icons.favorite_border_rounded,
+                    texto: 'Con cónyuge',
+                    scale: scale,
+                    hc: hc),
+            ],
+          ),
           const SizedBox(height: 10),
-          Text('Saldo: ${_clp(simulacion.saldoClp)}',
-              style:
-                  AppTextStyles.body(scale, color: hc ? Colors.black87 : null)),
-          const SizedBox(height: 2),
-          Text(
-            '${_fechaHora(simulacion.fecha)} · ${simulacion.edad} años'
-            '${simulacion.conConyuge ? ' · con cónyuge' : ''}',
-            style:
-                AppTextStyles.small(scale, color: hc ? Colors.black54 : null),
+          Row(
+            children: [
+              Icon(Icons.event_outlined,
+                  size: 15, color: hc ? Colors.black54 : AppColors.inkSoft),
+              const SizedBox(width: 6),
+              Text(_fechaHora(simulacion.fecha),
+                  style: AppTextStyles.small(scale * 0.9, color: suave)),
+            ],
           ),
         ],
       ),
@@ -318,6 +339,46 @@ class _TarjetaSimulacion extends StatelessWidget {
   }
 }
 
+/// Dato corto con ícono, en forma de "píldora".
+class _Pildora extends StatelessWidget {
+  final IconData icono;
+  final String texto;
+  final double scale;
+  final bool hc;
+
+  const _Pildora({
+    required this.icono,
+    required this.texto,
+    required this.scale,
+    required this.hc,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: hc ? Colors.white : AppColors.cream,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: hc ? Colors.black : AppColors.creamDeep),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icono,
+              size: 16, color: hc ? Colors.black : AppColors.tealDeep),
+          const SizedBox(width: 6),
+          Text(texto,
+              style: AppTextStyles.small(scale * 0.95,
+                  color: hc ? Colors.black : AppColors.ink)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Resumen gráfico: la última simulación de cada modalidad en barras y, si
+/// alguna se repitió, cómo cambió la pensión desde la primera.
 class _TarjetaGrafica extends StatelessWidget {
   final List<SimulacionGuardada> simulaciones; // de la más antigua a la nueva
   final double scale;
@@ -335,47 +396,126 @@ class _TarjetaGrafica extends StatelessWidget {
         .where((m) => simulaciones.any((s) => s.modalidad == m))
         .toList();
     final colores = {for (final m in presentes) m: _colorModalidad(m, hc)};
-    String nombreDe(String m) =>
-        simulaciones.firstWhere((s) => s.modalidad == m).nombreModalidad;
+    List<SimulacionGuardada> deModalidad(String m) =>
+        simulaciones.where((s) => s.modalidad == m).toList();
+    final ultimas = [for (final m in presentes) deModalidad(m).last];
+    final maximo = ultimas.fold<double>(
+        0, (v, s) => s.pensionMensualClp > v ? s.pensionMensualClp : v);
+    final repetidas =
+        presentes.where((m) => deModalidad(m).length > 1).toList();
+    final suave = hc ? Colors.black54 : null;
 
     return JubiloCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tendencia de tu pensión',
+          Text('Resumen de tus simulaciones',
               style: AppTextStyles.heading(scale * 0.8,
                   color: hc ? Colors.black : null)),
           const SizedBox(height: 4),
-          Text('Pensión mensual estimada en cada simulación guardada',
-              style: AppTextStyles.small(scale,
-                  color: hc ? Colors.black54 : null)),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              for (final m in presentes)
-                _Leyenda(texto: nombreDe(m), color: colores[m]!),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 220,
-            width: double.infinity,
-            child: CustomPaint(
-              painter: _TendenciaPainter(
-                simulaciones: simulaciones,
-                colores: colores,
-                textoColor: hc ? Colors.black87 : AppColors.inkSoft,
-                rejillaColor: hc ? Colors.black26 : AppColors.creamDeep,
+          Text('Última simulación guardada de cada modalidad',
+              style: AppTextStyles.small(scale, color: suave)),
+          const SizedBox(height: 14),
+          for (final s in ultimas) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(s.nombreModalidad,
+                      style: AppTextStyles.small(scale,
+                              color: hc ? Colors.black : null)
+                          .copyWith(fontWeight: FontWeight.w700)),
+                ),
+                Text('${_clp(s.pensionMensualClp)} al mes',
+                    style: AppTextStyles.small(scale,
+                            color: hc ? Colors.black : null)
+                        .copyWith(fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: maximo <= 0
+                    ? 0
+                    : (s.pensionMensualClp / maximo).clamp(0.0, 1.0),
+                minHeight: 12,
+                color: colores[s.modalidad],
+                backgroundColor: hc ? Colors.black12 : AppColors.creamDeep,
               ),
             ),
-          ),
-          if (simulaciones.length < 2) ...[
+            const SizedBox(height: 12),
+          ],
+          if (repetidas.isEmpty)
+            Text(
+              'Cuando repitas una simulación, aquí verás cómo cambia tu '
+              'pensión.',
+              style: AppTextStyles.small(scale, color: suave),
+            )
+          else ...[
+            const Divider(height: 24),
+            Text('Cómo ha cambiado',
+                style: AppTextStyles.body(scale,
+                        color: hc ? Colors.black : null)
+                    .copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-            Text('Guarda al menos 2 simulaciones para ver la tendencia.',
-                style: AppTextStyles.small(scale,
-                    color: hc ? Colors.black54 : null)),
+            for (final m in repetidas) ...[
+              Builder(builder: (_) {
+                final lista = deModalidad(m);
+                final dif = lista.last.pensionMensualClp -
+                    lista.first.pensionMensualClp;
+                final sube = dif >= 0;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(
+                          sube
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded,
+                          size: 20,
+                          color: hc ? Colors.black : colores[m]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${lista.first.nombreModalidad}: '
+                          '${sube ? '+' : '−'}${_clp(dif.abs())} al mes '
+                          'desde tu primera simulación',
+                          style: AppTextStyles.small(scale,
+                              color: hc ? Colors.black : null),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                for (final m in repetidas)
+                  _Leyenda(
+                      texto: deModalidad(m).first.nombreModalidad,
+                      color: colores[m]!),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 190,
+              width: double.infinity,
+              child: CustomPaint(
+                painter: _TendenciaPainter(
+                  simulaciones: [
+                    for (final s in simulaciones)
+                      if (repetidas.contains(s.modalidad)) s
+                  ],
+                  colores: colores,
+                  textoColor: hc ? Colors.black87 : AppColors.inkSoft,
+                  rejillaColor: hc ? Colors.black26 : AppColors.creamDeep,
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -612,6 +752,11 @@ class _TarjetaComparativa extends StatelessWidget {
                               color: hc ? Colors.black : null)
                           .copyWith(fontWeight: FontWeight.w700)),
                 ),
+                if (c.filas.length > 1 && identical(f, mayor)) ...[
+                  Icon(Icons.star_rounded,
+                      size: 16, color: hc ? Colors.black : AppColors.coral),
+                  const SizedBox(width: 4),
+                ],
                 Text(_clp(f.montoClp),
                     style: AppTextStyles.small(scale,
                             color: hc ? Colors.black : null)
@@ -623,9 +768,9 @@ class _TarjetaComparativa extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: maximo <= 0 ? 0 : (f.montoClp / maximo).clamp(0.0, 1.0),
-                minHeight: 9,
+                minHeight: 12,
                 color: _colorModalidad(f.modalidad, hc),
-                backgroundColor: AppColors.creamDeep,
+                backgroundColor: hc ? Colors.black12 : AppColors.creamDeep,
               ),
             ),
             if (f.pguClp > 0 || f.bacClp > 0)
@@ -640,10 +785,29 @@ class _TarjetaComparativa extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           if (mayor != null && c.filas.length > 1)
-            Text('Mayor monto al mes: ${mayor.nombre}.',
-                style: AppTextStyles.small(scale,
-                        color: hc ? Colors.black : AppColors.tealDeep)
-                    .copyWith(fontWeight: FontWeight.w800)),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: hc ? Colors.white : AppColors.cream,
+                borderRadius: BorderRadius.circular(10),
+                border:
+                    Border.all(color: hc ? Colors.black : AppColors.creamDeep),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.star_rounded,
+                      size: 18, color: hc ? Colors.black : AppColors.coral),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Mayor monto al mes: ${mayor.nombre}',
+                        style: AppTextStyles.small(scale,
+                                color: hc ? Colors.black : AppColors.tealDeep)
+                            .copyWith(fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
+            ),
           if (c.cantidadHijos > 0 || c.conConyuge)
             Padding(
               padding: const EdgeInsets.only(top: 4),
